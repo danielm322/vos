@@ -1,8 +1,9 @@
 _BASE_: "../../Base-RCNN-FPN.yaml"
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNNLogisticGMM"
-  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
-#  WEIGHTS: "./data/VOC-Detection/faster-rcnn/faster_rcnn_R_50_FPN_all_logistic/random_seed_0/model_final.pth"
+#  META_ARCHITECTURE: "ProbabilisticGeneralizedRCNN"
+#  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  WEIGHTS: "../model_final_vos_resnet_bdd.pth"
 
 #  PROPOSAL_GENERATOR:
 #    NAME: "RPNLogistic"
@@ -11,6 +12,7 @@ MODEL:
     DEPTH: 50
   ROI_HEADS:
     NAME: "ROIHeadsLogisticGMMNew"
+#    NAME: "ProbabilisticROIHeads"
     NUM_CLASSES: 10
 INPUT:
   MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)

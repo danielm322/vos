@@ -3,9 +3,10 @@ MODEL:
   PIXEL_STD: [57.375, 57.120, 58.395]
   BACKBONE:
     NAME: "build_regnetx_fpn_backbone"
-  META_ARCHITECTURE: "GeneralizedRCNNLogisticGMM"
-  WEIGHTS: "regnetx_detectron2.pth"
-#  WEIGHTS: "./data/VOC-Detection/faster-rcnn/faster_rcnn_R_50_FPN_all_logistic/random_seed_0/model_final.pth"
+#  META_ARCHITECTURE: "GeneralizedRCNNLogisticGMM"
+  META_ARCHITECTURE: "ProbabilisticGeneralizedRCNN"
+#  WEIGHTS: "regnetx_detectron2.pth"
+  WEIGHTS: "../model_final_vos_regnet_bdd.pth"
 
 #  PROPOSAL_GENERATOR:
 #    NAME: "RPNLogistic"
@@ -15,7 +16,8 @@ MODEL:
   RESNETS:
     DEPTH: 50
   ROI_HEADS:
-    NAME: "ROIHeadsLogisticGMMNew"
+#    NAME: "ROIHeadsLogisticGMMNew"
+    NAME: "ProbabilisticROIHeads"
     NUM_CLASSES: 10
 INPUT:
   MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)

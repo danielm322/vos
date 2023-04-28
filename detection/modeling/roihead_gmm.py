@@ -233,7 +233,8 @@ class ROIHeads(torch.nn.Module):
         # Get the corresponding GT for each proposal
         if has_gt:
             # breakpoint()
-            gt_classes = torch.zeros(gt_classes[matched_idxs].size()).cuda()
+            gt_classes = torch.zeros(gt_classes[matched_idxs].size()).cuda() if torch.cuda.is_available() \
+                else torch.zeros(gt_classes[matched_idxs].size())
             # Label unmatched proposals (0 label from matcher) as background (label=num_classes)
             # coco_classes == 80.
             gt_classes[matched_labels == 0] = self.num_classes
@@ -531,18 +532,22 @@ class ROIHeadsLogisticGMMNew(ROIHeads):
         # print(self.sample_number, self.start_iter)
 
         self.logistic_regression = torch.nn.Linear(1, 2)
-        self.logistic_regression.cuda()
+        if torch.cuda.is_available():
+            self.logistic_regression.cuda()
         # torch.nn.init.xavier_normal_(self.logistic_regression.weight)
 
         self.select = 1
         self.sample_from = 10000
         self.loss_weight = 0.1
-        self.weight_energy = torch.nn.Linear(self.num_classes, 1).cuda()
+        self.weight_energy = torch.nn.Linear(self.num_classes, 1).cuda() if torch.cuda.is_available() \
+            else torch.nn.Linear(self.num_classes, 1)
         torch.nn.init.uniform_(self.weight_energy.weight)
-        self.data_dict = torch.zeros(self.num_classes, self.sample_number, 1024).cuda()
+        self.data_dict = torch.zeros(self.num_classes, self.sample_number, 1024).cuda() if torch.cuda.is_available() \
+            else torch.zeros(self.num_classes, self.sample_number, 1024)
         self.number_dict = {}
-        self.eye_matrix = torch.eye(1024, device='cuda')
-        self.trajectory = torch.zeros((self.num_classes, 900, 3)).cuda()
+        self.eye_matrix = torch.eye(1024, device='cuda') if torch.cuda.is_available() else torch.eye(1024)
+        self.trajectory = torch.zeros((self.num_classes, 900, 3)).cuda() if torch.cuda.is_available() \
+            else torch.zeros((self.num_classes, 900, 3))
         for i in range(self.num_classes):
             self.number_dict[i] = 0
         self.cos = torch.nn.MSELoss()  #
@@ -802,7 +807,7 @@ class ROIHeadsLogisticGMMNew(ROIHeads):
                 for index in range(self.num_classes):
                     sum_temp += self.number_dict[index]
                 # print(iteration)
-                lr_reg_loss = torch.zeros(1).cuda()
+                lr_reg_loss = torch.zeros(1).cuda() if torch.cuda.is_available() else torch.zeros(1)
                 if sum_temp == self.num_classes * self.sample_number and iteration < self.start_iter:
                     selected_fg_samples = (gt_classes != predictions[0].shape[1] - 1).nonzero().view(-1)
                     indices_numpy = selected_fg_samples.cpu().numpy().astype(int)
@@ -863,8 +868,12 @@ class ROIHeadsLogisticGMMNew(ROIHeads):
                         energy_score_for_bg = self.log_sum_exp(predictions_ood[0][:, :-1], 1)
 
                         input_for_lr = torch.cat((energy_score_for_fg, energy_score_for_bg), -1)
-                        labels_for_lr = torch.cat((torch.ones(len(selected_fg_samples)).cuda(),
-                                                   torch.zeros(len(ood_samples)).cuda()), -1)
+                        if torch.cuda.is_available():
+                            labels_for_lr = torch.cat((torch.ones(len(selected_fg_samples)).cuda(),
+                                                       torch.zeros(len(ood_samples)).cuda()), -1)
+                        else:
+                            labels_for_lr = torch.cat((torch.ones(len(selected_fg_samples)),
+                                                       torch.zeros(len(ood_samples))), -1)
                         if False:
                             output = self.logistic_regression(input_for_lr.view(-1, 1))
                             lr_reg_loss = F.binary_cross_entropy_with_logits(
@@ -876,8 +885,12 @@ class ROIHeadsLogisticGMMNew(ROIHeads):
                                 F.sigmoid(output[len(selected_fg_samples):]).view(-1, 1),
                                 torch.zeros(len(ood_samples), 1).cuda()), 1))
                         else:
-                            weights_fg_bg = torch.Tensor([len(selected_fg_samples) / float(len(input_for_lr)),
-                                                         len(ood_samples) / float(len(input_for_lr))]).cuda()
+                            if torch.cuda.is_available():
+                                weights_fg_bg = torch.Tensor([len(selected_fg_samples) / float(len(input_for_lr)),
+                                                             len(ood_samples) / float(len(input_for_lr))]).cuda()
+                            else:
+                                weights_fg_bg = torch.Tensor([len(selected_fg_samples) / float(len(input_for_lr)),
+                                                              len(ood_samples) / float(len(input_for_lr))])
                             criterion = torch.nn.CrossEntropyLoss()#weight=weights_fg_bg)
                             output = self.logistic_regression(input_for_lr.view(-1, 1))
                             lr_reg_loss = criterion(output, labels_for_lr.long())
@@ -894,8 +907,13 @@ class ROIHeadsLogisticGMMNew(ROIHeads):
                             self.data_dict[dict_key][self.number_dict[dict_key]] = box_features[index].detach()
                             self.number_dict[dict_key] += 1
                 # create a dummy in order to have all weights to get involved in for a loss.
-                loss_dummy = self.cos(self.logistic_regression(torch.zeros(1).cuda()), self.logistic_regression.bias)
-                loss_dummy1 = self.cos(self.weight_energy(torch.zeros(self.num_classes).cuda()), self.weight_energy.bias)
+                if torch.cuda.is_available():
+                    loss_dummy = self.cos(self.logistic_regression(torch.zeros(1).cuda()), self.logistic_regression.bias)
+                    loss_dummy1 = self.cos(self.weight_energy(torch.zeros(self.num_classes).cuda()),
+                                           self.weight_energy.bias)
+                else:
+                    loss_dummy = self.cos(self.logistic_regression(torch.zeros(1)), self.logistic_regression.bias)
+                    loss_dummy1 = self.cos(self.weight_energy(torch.zeros(self.num_classes)), self.weight_energy.bias)
                 del box_features
                 # print(self.number_dict)
 
@@ -915,7 +933,7 @@ class ROIHeadsLogisticGMMNew(ROIHeads):
             else:
                 losses = {
                     "loss_cls": cross_entropy(scores, gt_classes, reduction="mean"),
-                    "lr_reg_loss":torch.zeros(1).cuda(),
+                    "lr_reg_loss":torch.zeros(1).cuda() if torch.cuda.is_available() else torch.zeros(1),
                     "loss_dummy": loss_dummy,
                     "loss_dummy1": loss_dummy1,
                     "loss_box_reg": self.box_predictor.box_reg_loss(

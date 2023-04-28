@@ -12,6 +12,7 @@ from detectron2.structures import BoxMode, Boxes, Instances, pairwise_iou
 # Project imports
 from inference.image_corruptions import corruption_dict, corruption_tuple
 from inference.rcnn_predictor import GeneralizedRcnnPlainPredictor
+from modeling.probabilistic_generalized_rcnn import ProbabilisticGeneralizedRCNN
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -28,7 +29,8 @@ def build_predictor(cfg):
     if cfg.MODEL.META_ARCHITECTURE == 'ProbabilisticRetinaNet':
         return RetinaNetProbabilisticPredictor(cfg)
     elif cfg.MODEL.META_ARCHITECTURE == 'ProbabilisticGeneralizedRCNN':
-        return GeneralizedRcnnProbabilisticPredictor(cfg)
+        # return GeneralizedRcnnProbabilisticPredictor(cfg)
+        return ProbabilisticGeneralizedRCNN(cfg)
     elif cfg.MODEL.META_ARCHITECTURE == 'ProbabilisticDetr':
         return DetrProbabilisticPredictor(cfg)
     elif cfg.MODEL.META_ARCHITECTURE == "GeneralizedRCNN":
@@ -653,15 +655,6 @@ def corrupt(x, severity=1, corruption_name=None, corruption_number=None):
         raise AssertionError("Output image not same size as input image!")
 
     return np.uint8(x_corrupted)
-
-
-def get_dir_alphas(pred_class_logits):
-    """
-    Function to get dirichlet parameters from logits
-    Args:
-        pred_class_logits: class logits
-    """
-    return torch.relu_(pred_class_logits) + 1.0
 
 
 def get_inference_output_dir(output_dir_name,

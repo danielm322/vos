@@ -29,6 +29,7 @@ MODEL:
 
     ROI_HEADS:
         NAME: "StandardROIHeads"
+#        NAME: "ProbabilisticROIHeads"
         IN_FEATURES: ["p2", "p3", "p4", "p5"]
 
     ROI_BOX_HEAD:

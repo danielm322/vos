@@ -152,7 +152,7 @@ def setup_bdd_dataset(dataset_dir):
     train_json_annotations = os.path.join(
         dataset_dir, 'train_bdd_converted.json')
     test_json_annotations = os.path.join(
-        dataset_dir, 'val_bdd_converted.json')
+        dataset_dir, 'val_bdd_converted_subset.json')
 
     register_coco_instances(
         "bdd_custom_train",
@@ -248,7 +248,7 @@ def setup_coco_ood_bdd_dataset(dataset_dir):
     # test_json_annotations = os.path.join(
     #     dataset_dir, 'COCO-Format', 'val_coco_format.json')
     test_json_annotations = os.path.join(
-        dataset_dir, 'annotations', 'instances_val2017_ood_wrt_bdd_rm_overlap.json')
+        dataset_dir, 'annotations', 'instances_val2017_ood_wrt_bdd_rm_overlap_subset.json')
 
     register_coco_instances(
         "coco_ood_val_bdd",

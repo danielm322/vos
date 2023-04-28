@@ -36,7 +36,7 @@ def main(args):
     # Make sure only 1 data point is processed at a time. This simulates
     # deployment.
     cfg.defrost()
-    cfg.DATALOADER.NUM_WORKERS = 32
+    cfg.DATALOADER.NUM_WORKERS = 4
     cfg.SOLVER.IMS_PER_BATCH = 1
 
     cfg.MODEL.DEVICE = device.type
@@ -123,11 +123,12 @@ if __name__ == "__main__":
     arg_parser = setup_arg_parser()
     args = arg_parser.parse_args()
     # Support single gpu inference only.
-    args.num_gpus = 1
+    args.num_gpus = 0
     # args.num_machines = 8
 
     print("Command Line Args:", args)
-
+    # This function checks if there are multiple gpus, then it launches the distributed inference, otherwise it
+    # just launches the main function, i.e., would act as a function wrapper passing the args to main
     launch(
         main,
         args.num_gpus,

@@ -25,11 +25,20 @@ from detectron2.utils.logger import log_first_n
 from fvcore.nn import smooth_l1_loss
 
 # Project imports
-from inference.inference_utils import get_dir_alphas
+# from inference.inference_utils import get_dir_alphas
 from modeling.modeling_utils import get_probabilistic_loss_weight, clamp_log_variance, covariance_output_to_cholesky
+from modeling.roihead_gmm import ROIHeadsLogisticGMMNew
 
 device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu")
+
+def get_dir_alphas(pred_class_logits):
+    """
+    Function to get dirichlet parameters from logits
+    Args:
+        pred_class_logits: class logits
+    """
+    return torch.relu_(pred_class_logits) + 1.0
 
 
 @META_ARCH_REGISTRY.register()
@@ -61,7 +70,7 @@ class ProbabilisticGeneralizedRCNN(GeneralizedRCNN):
 
         self.dropout_rate = cfg.MODEL.PROBABILISTIC_MODELING.DROPOUT_RATE
         self.use_dropout = self.dropout_rate != 0.0
-        self.num_mc_dropout_runs = -1
+        self.num_mc_dropout_runs = cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
 
         self.current_step = 0
 
@@ -109,15 +118,15 @@ class ProbabilisticGeneralizedRCNN(GeneralizedRCNN):
             dict[str: Tensor]:
                 mapping from a named loss to a tensor storing the loss. Used during training only.
         """
-        if not self.training and num_mc_dropout_runs == -1:
+        if not self.training and self.num_mc_dropout_runs == -1:
             if return_anchorwise_output:
                 return self.produce_raw_output(batched_inputs)
             else:
                 return self.inference(batched_inputs)
-        elif self.training and num_mc_dropout_runs > 1:
-            self.num_mc_dropout_runs = num_mc_dropout_runs
+        elif self.training and self.num_mc_dropout_runs > 1:
+            # self.num_mc_dropout_runs = num_mc_dropout_runs
             output_list = []
-            for i in range(num_mc_dropout_runs):
+            for i in range(self.num_mc_dropout_runs):
                 output_list.append(self.produce_raw_output(batched_inputs))
             return output_list
 
@@ -222,6 +231,7 @@ class ProbabilisticROIHeads(StandardROIHeads):
         self.is_mc_dropout_inference = False
         self.produce_raw_output = False
         self.current_step = 0
+        self.num_mc_dropout_runs = cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
 
     def forward(
         self,
@@ -237,7 +247,7 @@ class ProbabilisticROIHeads(StandardROIHeads):
         See :class:`ROIHeads.forward`.
         """
 
-        self.is_mc_dropout_inference = num_mc_dropout_runs > 1
+        self.is_mc_dropout_inference = self.num_mc_dropout_runs > 1
         self.produce_raw_output = produce_raw_output
         self.current_step = current_step
 
@@ -294,7 +304,7 @@ class ProbabilisticROIHeads(StandardROIHeads):
         if self.produce_raw_output:
             return predictions
 
-        if self.training:
+        if self.training and not self.is_mc_dropout_inference:
             if self.train_on_pred_boxes:
                 with torch.no_grad():
                     pred_boxes = self.box_predictor.predict_boxes_for_gt_classes(

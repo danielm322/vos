@@ -18,7 +18,7 @@ import core
 
 from core.datasets.setup_datasets import setup_all_datasets
 from modeling.probabilistic_retinanet import ProbabilisticRetinaNet
-from modeling.probabilistic_generalized_rcnn import ProbabilisticGeneralizedRCNN, DropoutFastRCNNConvFCHead, ProbabilisticROIHeads
+# from modeling.probabilistic_generalized_rcnn import ProbabilisticGeneralizedRCNN, DropoutFastRCNNConvFCHead, ProbabilisticROIHeads
 from modeling.plain_generalized_rcnn_logistic_gmm import GeneralizedRCNNLogisticGMM
 from modeling.roihead_gmm import ROIHeadsLogisticGMMNew
 from modeling.regnet import build_regnet_fpn_backbone
