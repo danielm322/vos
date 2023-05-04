@@ -33,7 +33,7 @@ MODEL:
         IN_FEATURES: ["p2", "p3", "p4", "p5"]
 
     ROI_BOX_HEAD:
-        NAME: "FastRCNNConvFCHead"
+        NAME: "DropoutFastRCNNConvFCHead"
         NUM_FC: 2
         POOLER_RESOLUTION: 7
 
@@ -41,6 +41,9 @@ MODEL:
         NAME: "MaskRCNNConvUpsampleHead"
         NUM_CONV: 4
         POOLER_RESOLUTION: 14
+
+    PROBABILISTIC_MODELING:
+        DROPOUT_RATE: 0.5
 
 INPUT:
     MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)

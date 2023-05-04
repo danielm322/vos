@@ -16,7 +16,6 @@ from detectron2.engine import DefaultTrainer, launch
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, verify_results
 
 
-
 # Project imports
 from core.setup import setup_config, setup_arg_parser
 
