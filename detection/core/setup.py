@@ -18,7 +18,7 @@ import core
 
 from core.datasets.setup_datasets import setup_all_datasets
 from modeling.probabilistic_retinanet import ProbabilisticRetinaNet
-# from modeling.probabilistic_generalized_rcnn import ProbabilisticGeneralizedRCNN, DropoutFastRCNNConvFCHead, ProbabilisticROIHeads
+from modeling.probabilistic_generalized_rcnn import ProbabilisticGeneralizedRCNN, DropoutFastRCNNConvFCHead, ProbabilisticROIHeads
 from modeling.plain_generalized_rcnn_logistic_gmm import GeneralizedRCNNLogisticGMM
 from modeling.roihead_gmm import ROIHeadsLogisticGMMNew
 from modeling.regnet import build_regnet_fpn_backbone
@@ -178,6 +178,8 @@ def setup_config(args, random_seed=None, is_testing=False, ood=False):
     """
     # Get default detectron config file
     cfg = get_cfg()
+    # CHeck if cuda is available, otherwise choose cpu for development and debugging in cpu only pcs
+    cfg.MODEL.DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     add_probabilistic_config(cfg)
     # add_hrnet_config(cfg)
 
