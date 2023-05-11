@@ -40,7 +40,9 @@ def main(args):
     cfg.SOLVER.IMS_PER_BATCH = 1
 
     cfg.MODEL.DEVICE = device.type
-
+    # Check if the inference is using vos, by checking if the config file is vos.yaml
+    # Returns False otherwise
+    using_vos = args.config_file.split('.yaml')[0].split('/')[-1] == 'vos'
     # Set up number of cpu threads#
     torch.set_num_threads(cfg.DATALOADER.NUM_WORKERS)
 
@@ -94,7 +96,7 @@ def main(args):
                                                       savedir=args.savefigdir,
                                                       name=str(input_im[0]['image_id']),
                                                       cfg=cfg,
-                                                      energy_threshold=8.868)
+                                                      energy_threshold=8.868 if using_vos else 0)
 
 
                     final_output_list.extend(
