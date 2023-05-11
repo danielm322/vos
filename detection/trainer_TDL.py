@@ -4,14 +4,11 @@ import logging
 from torch.nn.parallel import DistributedDataParallel
 from fvcore.nn.precise_bn import get_bn_modules
 from collections import OrderedDict
-
 from detectron2.modeling import build_model
 from detectron2.solver import build_lr_scheduler, build_optimizer
 from detectron2.utils.logger import setup_logger
 from detectron2.utils import comm
-from detectron2.engine.train_loop import AMPTrainer, TrainerBase
-# from detectron2.checkpoint import DetectionCheckpointer
-from hooks_TDL import MLFlowCheckpointer
+from detectron2.engine.train_loop import AMPTrainer
 from detectron2.engine.hooks import (
     IterationTimer,
     LRScheduler,
@@ -26,9 +23,9 @@ from detectron2.evaluation import (
     print_csv_format,
     verify_results,
 )
-
-from trainer_base_TDL import SimpleTrainer
-from hooks_TDL import EvalHook
+# TDL Project imports
+from trainer_base_TDL import SimpleTrainer, TrainerBase
+from hooks_TDL import EvalHook, MLFlowCheckpointer
 
 
 def create_ddp_model(model, *, fp16_compression=False, **kwargs):
