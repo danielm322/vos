@@ -1,10 +1,16 @@
+import os
+from typing import Any, cast, IO
+
 import mlflow
+from mlflow.models.signature import infer_signature
 from collections import defaultdict
 
 import detectron2.utils.comm as comm
+import torch
 from detectron2.utils.events import get_event_storage, EventWriter
 from detectron2.engine.train_loop import HookBase
 from detectron2.evaluation.testing import flatten_results_dict
+from detectron2.checkpoint import DetectionCheckpointer
 
 
 class MLFlowWriter(EventWriter):
@@ -13,6 +19,7 @@ class MLFlowWriter(EventWriter):
     because mlflow automatically creates a folder with the current run
     and logs accordingly
     """
+
     def __init__(self, window_size=20):
         """
         Args:
@@ -43,7 +50,7 @@ class MLFlowWriter(EventWriter):
 class EvalHook(HookBase):
     """
     Run an evaluation function periodically, and at the end of training.
-
+    Logs metrics with MLFlow
     It is executed every ``eval_period`` iterations and after the last iteration.
     """
 
@@ -109,3 +116,49 @@ class EvalHook(HookBase):
         # func is likely a closure that holds reference to the trainer
         # therefore we clean it to avoid circular reference in the end
         del self._func
+
+
+class MLFlowCheckpointer(DetectionCheckpointer):
+    """
+    This class extends the capability of the previous checkpointer by implementing an MLFlow
+    model saver and logger. It still saves the checkpoint and state dict, but also creates an extra
+    artifact only to perform mlflow inference and possible model serving.
+
+    This class can save either the best or the last model according to the defined metric in the config
+    """
+    def save(self, name: str, **kwargs: Any) -> None:
+        """
+        Dump model and checkpointables to a file, and log it with MLFlow
+
+        Args:
+            name (str): name of the file.
+            kwargs (dict): extra arbitrary data to save.
+        """
+        if not self.save_dir or not self.save_to_disk:
+            return
+
+        data = {}
+        data["model"] = self.model.state_dict()
+        for key, obj in self.checkpointables.items():
+            data[key] = obj.state_dict()
+        data.update(kwargs)
+
+        # Choose mlflow model name, depending on if it's the best or the last
+        mlflow_model_name = None
+        if 'best' in name:
+            mlflow_model_name = 'best'
+        elif 'last' in name:
+            mlflow_model_name = 'last'
+        # Check we are saving either the best or the last checkpoint
+        assert mlflow_model_name in ('best', 'last'), 'Checkpoint is not best or the last'
+        basename = "{}.pth".format(name)
+        save_file = os.path.join(self.save_dir, basename)
+        assert os.path.basename(save_file) == basename, basename
+        self.logger.info("Saving checkpoint to {}".format(save_file))
+        with self.path_manager.open(save_file, "wb") as f:
+            torch.save(data, cast(IO[bytes], f))
+        # Mlflow log / save
+        mlflow.pytorch.log_model(pytorch_model=self.model,
+                                 artifact_path=mlflow_model_name,
+                                 )
+        self.tag_last_checkpoint(basename)
