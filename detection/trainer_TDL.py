@@ -10,7 +10,8 @@ from detectron2.solver import build_lr_scheduler, build_optimizer
 from detectron2.utils.logger import setup_logger
 from detectron2.utils import comm
 from detectron2.engine.train_loop import AMPTrainer, TrainerBase
-from detectron2.checkpoint import DetectionCheckpointer
+# from detectron2.checkpoint import DetectionCheckpointer
+from hooks_TDL import MLFlowCheckpointer
 from detectron2.engine.hooks import (
     IterationTimer,
     LRScheduler,
@@ -117,7 +118,7 @@ class DefaultTrainer(TrainerBase):
         )
 
         self.scheduler = self.build_lr_scheduler(cfg, optimizer)
-        self.checkpointer = DetectionCheckpointer(
+        self.checkpointer = MLFlowCheckpointer(
             # Assume you want to save checkpoints together with logs/statistics
             model,
             cfg.OUTPUT_DIR,
@@ -183,15 +184,15 @@ class DefaultTrainer(TrainerBase):
         if comm.is_main_process():
             ret.append(
                 PeriodicCheckpointer(self.checkpointer,
-                                           cfg.SOLVER.CHECKPOINT_PERIOD,
-                                           cfg.SOLVER.MAX_ITER,
-                                           cfg.SOLVER.SAVE_LAST_CHECKPOINTS)
+                                     cfg.SOLVER.CHECKPOINT_PERIOD,
+                                     cfg.SOLVER.MAX_ITER,
+                                     cfg.SOLVER.SAVE_LAST_CHECKPOINTS)
             )
             ret.append(
                 BestCheckpointer(cfg.SOLVER.CHECKPOINT_PERIOD,
-                                       self.checkpointer,
-                                       cfg.SOLVER.VAL_METRIC,
-                                       cfg.SOLVER.VAL_METRIC_MODE)
+                                 self.checkpointer,
+                                 cfg.SOLVER.VAL_METRIC,
+                                 cfg.SOLVER.VAL_METRIC_MODE)
             )
 
         def test_and_save_results():
@@ -415,6 +416,13 @@ class DefaultTrainer(TrainerBase):
         if frozen:
             cfg.freeze()
         return cfg
+
+    # Methods to be overriden in child class
+    def build_writers(self):
+        raise NotImplementedError
+
+    def build_train_loader(self, cfg):
+        raise NotImplementedError
 
 
 # Access basic attributes from the underlying trainer
