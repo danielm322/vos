@@ -144,14 +144,10 @@ class MLFlowCheckpointer(DetectionCheckpointer):
         data.update(kwargs)
 
         # Choose mlflow model name, depending on if it's the best or the last
-        mlflow_model_name = None
         if 'best' in name:
             mlflow_model_name = 'best'
-        # fvcore's periodic checkpointer default last checkpoint name is just 'model'
-        elif name == 'model':
+        else:
             mlflow_model_name = 'last'
-        # Check we are saving either the best or the last checkpoint
-        assert mlflow_model_name in ('best', 'last'), 'Checkpoint is not best or the last'
         basename = "{}.pth".format(name)
         save_file = os.path.join(self.save_dir, basename)
         assert os.path.basename(save_file) == basename, basename
