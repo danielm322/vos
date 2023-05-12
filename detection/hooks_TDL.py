@@ -147,7 +147,8 @@ class MLFlowCheckpointer(DetectionCheckpointer):
         mlflow_model_name = None
         if 'best' in name:
             mlflow_model_name = 'best'
-        elif 'last' in name:
+        # fvcore's periodic checkpointer default last checkpoint name is just 'model'
+        elif name == 'model':
             mlflow_model_name = 'last'
         # Check we are saving either the best or the last checkpoint
         assert mlflow_model_name in ('best', 'last'), 'Checkpoint is not best or the last'
