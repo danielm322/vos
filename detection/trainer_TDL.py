@@ -185,24 +185,26 @@ class DefaultTrainer(TrainerBase):
                                      cfg.SOLVER.MAX_ITER,
                                      cfg.SOLVER.SAVE_LAST_CHECKPOINTS)
             )
+
+        def test_and_save_results():
+            self._last_eval_results = self.test(self.cfg, self.model)
+            return self._last_eval_results
+
+        # Do evaluation before best checkpointer and after last checpointer,
+        # because if not, the best checkpointer will not save the current checkpoint
+        ret.append(
+            EvalHook(cfg.TEST.EVAL_PERIOD,
+                     test_and_save_results,
+                     eval_after_train=True)
+        )
+
+        if comm.is_main_process():
             ret.append(
                 BestCheckpointer(cfg.SOLVER.CHECKPOINT_PERIOD,
                                  self.checkpointer,
                                  cfg.SOLVER.VAL_METRIC,
                                  cfg.SOLVER.VAL_METRIC_MODE)
             )
-
-        def test_and_save_results():
-            self._last_eval_results = self.test(self.cfg, self.model)
-            return self._last_eval_results
-
-        # Do evaluation after checkpointer, because then if it fails,
-        # we can use the saved checkpoint to debug.
-        ret.append(
-            EvalHook(cfg.TEST.EVAL_PERIOD,
-                     test_and_save_results,
-                     eval_after_train=True)
-        )
 
         if comm.is_main_process():
             # Here the default print/log frequency of each writer is used.
