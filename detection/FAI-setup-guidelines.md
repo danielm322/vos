@@ -48,6 +48,21 @@ pip install opencv-python==4.7.0.*
 Make sure the BDD dataset has been copied to a directory you know its location. For this you can use scp 
 or vscode drag & drop.
 
-Go back to the VOS folder.
+Go back to the VOS folder, and you can begin training.
 
-scp -r .\bdd100k\ dmontoya@132.167.191.34:/home/users/dmontoya/data_repos/datasets
+# Training the vanilla resnet using dropout and mlflow tracking
+Checkout the configuration files for details on training hyperparameters.
+```bash
+cd detection
+python train_net.py --dataset-dir ../../bdd100k \
+   --num-gpus 1 \
+   --config-file BDD-Detection/faster-rcnn/vanilla.yaml \
+   --random-seed 0 \
+   --resume
+```
+
+If you are training in Factory AI, to view the mlflow logs, download the contents of the `mlruns` folder to 
+your local VOS repository and execute:
+```bash
+mlflow ui
+```
