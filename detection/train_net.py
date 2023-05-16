@@ -94,18 +94,6 @@ def main(args):
     # Setup config node
     cfg = setup_config(args,
                        random_seed=args.random_seed)
-    # MlFlow configuration
-    experiment_name = "Box Head Dropout"
-    existing_exp = mlflow.get_experiment_by_name(experiment_name)
-    if not existing_exp:
-        mlflow.create_experiment(
-            name=experiment_name,
-            tags={"dropout": True,
-                  "dropout_location": "box head",
-                  'vos': False},
-        )
-    experiment = mlflow.set_experiment(experiment_name=experiment_name)
-    mlflow.set_tracking_uri("./mlruns")
 
     # For debugging only
     # cfg.defrost()
@@ -114,7 +102,6 @@ def main(args):
 
     # Eval only mode to produce mAP results
     # Build Trainer from config node. Begin Training.
-
     trainer = Trainer(cfg)
 
     if args.eval_only:
@@ -128,6 +115,19 @@ def main(args):
         return res
 
     trainer.resume_or_load(resume=args.resume)
+    # MlFlow configuration
+    experiment_name = "Box Head Dropout"
+    existing_exp = mlflow.get_experiment_by_name(experiment_name)
+    if not existing_exp:
+        mlflow.create_experiment(
+            name=experiment_name,
+            tags={"dropout": True,
+                  "dropout_location": "box head",
+                  'vos': False},
+        )
+    experiment = mlflow.set_experiment(experiment_name=experiment_name)
+    mlflow.set_tracking_uri("./mlruns")
+
     # Define mlflow run to log metrics and parameters
     with mlflow.start_run(experiment_id=experiment.experiment_id) as run:
         # Log parameters
