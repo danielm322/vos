@@ -85,7 +85,6 @@ class EvalHook(HookBase):
             for k, v in flattened_results.items():
                 try:
                     v = float(v)
-                    mlflow.log_metric(k, v, step=self.trainer.iter)
                 except Exception as e:
                     raise ValueError(
                         "[EvalHook] eval_function should return a nested dict of float. "
@@ -98,7 +97,7 @@ class EvalHook(HookBase):
         comm.synchronize()
 
     def before_train(self):
-        # When fine-tuning, save evaluation at first iteration to compare afterwards
+        # When fine-tuning, save evaluation at first iteration to compare afterward
         if self.trainer.iter == 0:
             self._do_eval()
 

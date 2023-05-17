@@ -8,7 +8,7 @@ from detectron2.modeling import build_model
 from detectron2.solver import build_lr_scheduler, build_optimizer
 from detectron2.utils.logger import setup_logger
 from detectron2.utils import comm
-from detectron2.engine.train_loop import AMPTrainer, TrainerBase
+from detectron2.engine.train_loop import AMPTrainer, TrainerBase, SimpleTrainer
 from detectron2.engine.hooks import (
     IterationTimer,
     LRScheduler,
@@ -24,8 +24,7 @@ from detectron2.evaluation import (
     verify_results,
 )
 # TDL Project imports
-from trainer_base_TDL import SimpleTrainer
-from hooks_TDL import EvalHook, MLFlowCheckpointer
+from hooks_TDL import MLFlowCheckpointer, EvalHook
 
 
 def create_ddp_model(model, *, fp16_compression=False, **kwargs):
