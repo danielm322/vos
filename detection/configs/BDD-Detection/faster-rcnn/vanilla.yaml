@@ -31,6 +31,9 @@ SOLVER:
   SAVE_BEST_CHECKPOINTS: 2
   VAL_METRIC: "bbox/AP50"
   VAL_METRIC_MODE: "max"
+  FREEZE_BACKBONE: True
+  FREEZE_RPN: True
+  FREEZE_BOX_POOLER: True
 DATALOADER:
     NUM_WORKERS: 8  # Depends on the available memory
 TEST:

@@ -105,6 +105,19 @@ class DefaultTrainer(TrainerBase):
 
         # Assume these objects must be constructed in this order.
         model = self.build_model(cfg)
+        # Freeze layers according to config
+        if cfg.SOLVER.FREEZE_BACKBONE:
+            for param in model.backbone.parameters():
+                param.requires_grad = False
+            logger.info("Freezing Backbone")
+        if cfg.SOLVER.FREEZE_RPN:
+            for param in model.proposal_generator.parameters():
+                param.requires_grad = False
+            logger.info("Freezing RPN")
+        if cfg.SOLVER.FREEZE_BOX_POOLER:
+            for param in model.roi_heads.box_pooler.parameters():
+                param.requires_grad = False
+            logger.info("Freezing Box Pooler")
         optimizer = self.build_optimizer(cfg, model)
         data_loader = self.build_train_loader(cfg)
 
