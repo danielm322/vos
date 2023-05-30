@@ -55,7 +55,7 @@ class COCOParser:
         im_ids = im_ids if isinstance(im_ids, list) else [im_ids]
         return [self.im_dict[im_id] for im_id in im_ids]
 
-
+print("Subsetting COCO...")
 # Load json and instantiate parser
 coco_annotations_file = "../../id_bdd_ood_coco/annotations/instances_val2017_ood_wrt_bdd_rm_overlap.json"
 coco= COCOParser(coco_annotations_file)
@@ -65,7 +65,7 @@ number_of_selected_images = 100
 
 # total number of images
 total_images = len(coco.get_imgIds())
-
+print("Total images: ", total_images)
 # Choose randomly the images
 # np.random.seed(40)
 # selected_indexes = np.random.permutation(total_images)[:number_of_selected_images]
@@ -89,7 +89,7 @@ subset_coco_dict = {
     'annotations': anns,
     'categories': coco.categories_original['categories']
 }
-
+print(f"Saved {len(imgs_info)} images")
 # Save dictionary as json
 with open("../../id_bdd_ood_coco/annotations/instances_val2017_ood_wrt_bdd_rm_overlap_subset.json", "w") as outfile:
     json.dump(subset_coco_dict, outfile)

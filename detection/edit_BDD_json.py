@@ -37,18 +37,19 @@ class BDDParser:
         im_ids = im_ids if isinstance(im_ids, list) else [im_ids]
         return [self.im_dict[im_id] for im_id in im_ids]
 
-
+# Make sure we are editing the correct database
+print("Subsetting BDD...")
 # Load json and instantiate parser
 # In this case the dataset is located outside the project folder, inside the parent folder of the project
 bdd_annotations_file = "../../bdd100k/val_bdd_converted.json"
 bdd = BDDParser(bdd_annotations_file)
 
 # Select the first x number of images to subset
-number_of_selected_images = 20
+number_of_selected_images = 200
 
 # total number of images
 total_images = len(bdd.get_imgIds())
-
+print("Total images: ", total_images)
 # Choose randomly the images
 # np.random.seed(40)
 # selected_indexes = np.random.permutation(total_images)[:number_of_selected_images]
@@ -71,7 +72,7 @@ subset_bdd_dict = {
     'images': images_info,
     'annotations': annotations,
 }
-
+print(f"Saved {len(images_info)} images")
 # Save dictionary as json
 with open("../../bdd100k/val_bdd_converted_subset.json", "w") as outfile:
     json.dump(subset_bdd_dict, outfile)

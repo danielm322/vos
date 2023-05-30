@@ -124,8 +124,6 @@ if __name__ == "__main__":
     # Create arg parser
     arg_parser = setup_arg_parser()
     args = arg_parser.parse_args()
-    # Support single gpu inference only.
-    args.num_gpus = 0
     # args.num_machines = 8
 
     print("Command Line Args:", args)
