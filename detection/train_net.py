@@ -4,20 +4,25 @@ Probabilistic Detectron Training Script following Detectron2 training script fou
 import core
 import os
 import sys
+import mlflow
 
 # This is very ugly. Essential for now but should be fixed.
 sys.path.append(os.path.join(core.top_dir(), 'src', 'detr'))
 
 # Detectron imports
+from detectron2.utils.events import CommonMetricPrinter, TensorboardXWriter
 import detectron2.utils.comm as comm
+from detectron2.utils.file_io import PathManager
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data import build_detection_test_loader, build_detection_train_loader
-from detectron2.engine import DefaultTrainer, launch
+from detectron2.engine import launch
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators, verify_results
-
 
 # Project imports
 from core.setup import setup_config, setup_arg_parser
+from core.setup import log_params_from_conf_node
+from trainer_TDL import DefaultTrainer
+from hooks_TDL import MLFlowWriter
 
 
 class Trainer(DefaultTrainer):
@@ -63,6 +68,27 @@ class Trainer(DefaultTrainer):
         return build_detection_train_loader(
             cfg)
 
+    def build_writers(self):
+        """
+        Build a list of :class:`EventWriter` to be used.
+        It now consists of a :class:`CommonMetricPrinter`,
+        :class:`TensorboardXWriter` and :class:`MLFlowWriter`.
+
+        Params used:
+            output_dir: directory to store tensorboard events
+            max_iter: the total number of iterations
+
+        Returns:
+            list[EventWriter]: a list of :class:`EventWriter` objects.
+        """
+        PathManager.mkdirs(self.cfg.OUTPUT_DIR)
+        return [
+            # It may not always print what you want to see, since it prints "common" metrics only.
+            CommonMetricPrinter(self.max_iter),
+            TensorboardXWriter(self.cfg.OUTPUT_DIR),
+            MLFlowWriter()
+        ]
+
 
 def main(args):
     # Setup config node
@@ -70,13 +96,12 @@ def main(args):
                        random_seed=args.random_seed)
 
     # For debugging only
-    #cfg.defrost()
-    #cfg.DATALOADER.NUM_WORKERS = 0
-    #cfg.SOLVER.IMS_PER_BATCH = 1
+    # cfg.defrost()
+    # cfg.DATALOADER.NUM_WORKERS = 0
+    # cfg.SOLVER.IMS_PER_BATCH = 1
 
     # Eval only mode to produce mAP results
     # Build Trainer from config node. Begin Training.
-
     trainer = Trainer(cfg)
 
     if args.eval_only:
@@ -90,7 +115,24 @@ def main(args):
         return res
 
     trainer.resume_or_load(resume=args.resume)
-    return trainer.train()
+    # MlFlow configuration
+    experiment_name = "Box Head Dropout"
+    existing_exp = mlflow.get_experiment_by_name(experiment_name)
+    if not existing_exp:
+        mlflow.create_experiment(
+            name=experiment_name,
+            tags={"dropout": True,
+                  "dropout_location": "box head",
+                  'vos': False},
+        )
+    experiment = mlflow.set_experiment(experiment_name=experiment_name)
+    mlflow.set_tracking_uri("./mlruns")
+
+    # Define mlflow run to log metrics and parameters
+    with mlflow.start_run(experiment_id=experiment.experiment_id) as run:
+        # Log parameters
+        log_params_from_conf_node(cfg)
+        return trainer.train()
 
 
 if __name__ == "__main__":

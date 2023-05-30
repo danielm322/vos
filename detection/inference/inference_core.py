@@ -126,6 +126,9 @@ class ProbabilisticPredictor(ABC):
         # breakpoint()
 
         inter_feat = results.inter_feat[0:max_boxes]
+        # This is where the vos classification takes place, in postprocessing, by applying this logistic classifier
+        # over the classes logits for each box
+        # Passing an energy threshold of 0 means not using vos and taking directly network predictions
         if energy_threshold:
             labels[(np.argwhere(
                 torch.logsumexp(inter_feat[:, :-1], dim=1).cpu().data.numpy() < energy_threshold)).reshape(-1)] = 10
