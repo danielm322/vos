@@ -38,7 +38,7 @@ python --version
 printf "\n"
 # nvidia-smi
 # printf "\n"
-printf "Start training:"
+printf "Start inference:"
 srun --kill-on-bad-exit=1 python TDL_apply_net.py --dataset-dir ../../bdd100k --test-dataset bdd_custom_val --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/standard_nms.yaml --random-seed 1 --image-corruption-level 0 --slurm-inference 1
 
 # dmesg -T

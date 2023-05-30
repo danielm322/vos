@@ -18,7 +18,7 @@ from detectron2.engine import launch
 # Project imports
 # from core.evaluation_tools.evaluation_utils import get_train_contiguous_id_to_test_thing_dataset_id_dict
 from core.setup import setup_config, setup_arg_parser
-from inference.inference_utils import instances_to_json, get_inference_output_dir, build_predictor
+from inference.inference_utils import get_inference_output_dir, build_predictor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -33,7 +33,7 @@ from ls_ood_detect_cea.uncertainty_estimation import deeplabv3p_apply_dropout
 from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
 from ls_ood_detect_cea import plot_samples_pacmap, apply_pca_ds_split, apply_pca_transform, DetectorKDE, get_hz_scores, \
     get_hz_detector_results, plot_roc_ood_detector
-from detection.TDL_helper_functions import build_in_distribution_valid_test_dataloader_args, build_data_loader, \
+from TDL_helper_functions import build_in_distribution_valid_test_dataloader_args, build_data_loader, \
     build_ood_dataloader_args, get_ls_mcd_samples, fit_pacmap, apply_pacmap_transform
 
 

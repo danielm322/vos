@@ -62,8 +62,6 @@ def get_ls_mcd_samples(model: torch.nn.Module,
                 dl_imgs_latent_mcd_samples.append(img_mcd_samples_t)
                 # Update progress bar
                 pbar.update(1)
-                if i == 29:
-                    break
             dl_imgs_latent_mcd_samples_t = torch.cat(dl_imgs_latent_mcd_samples, dim=0)
 
     return dl_imgs_latent_mcd_samples_t

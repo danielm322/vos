@@ -49,6 +49,6 @@ INPUT:
     MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
 
 SOLVER:
-    CHECKPOINT_PERIOD: 400  # Has to be the same as eval period
+    CHECKPOINT_PERIOD: 1000  # Has to be the same as eval period
 
 VERSION: 2
