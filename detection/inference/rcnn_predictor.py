@@ -28,6 +28,8 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
         # Put proposal generator in eval mode if dropout enabled
         if self.mc_dropout_enabled:
             self.model.proposal_generator.eval()
+        # perform mc dropout after single inference
+        self.mc_dropout_after = cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.AFTER_INFERENCE
 
     def generalized_rcnn_probabilistic_inference(self,
                                                  input_im,
@@ -50,7 +52,7 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
             all_predicted_prob_vectors (Tensor): NxK tensor where K is the number of classes.
         """
         is_epistemic = ((self.mc_dropout_enabled and self.num_mc_dropout_runs > 1)
-                        or ensemble_inference) and outputs is None
+                        or ensemble_inference) and outputs is None and not self.mc_dropout_after
         if is_epistemic:
             if self.mc_dropout_enabled and self.num_mc_dropout_runs > 1:
                 outputs_list = self.model(
@@ -150,7 +152,7 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
         else:
             box_delta = box_delta[filter_mask]
 
-        det_labels = torch.arange(scores.shape[1], dtype=torch.long)
+        det_labels = torch.arange(scores.shape[1], dtype=torch.long).to(scores.device)
         det_labels = det_labels.view(1, -1).expand_as(scores)
 
         scores = scores[filter_mask]

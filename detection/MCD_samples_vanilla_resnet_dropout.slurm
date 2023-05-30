@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --time=0-08:00:00
-#SBATCH --partition=gpuv100
+#SBATCH --time=0-04:00:00
+#SBATCH --partition=gpu40G,gpuv100
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
-#SBATCH --mem=16G
+#SBATCH --mem=24G
 #SBATCH --gres=gpu:1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=daniel-alfonso.montoyavasquez@cea.fr
@@ -39,7 +39,7 @@ printf "\n"
 # nvidia-smi
 # printf "\n"
 printf "Start training:"
-srun --kill-on-bad-exit=1 python train_net.py --dataset-dir /home/users/dmontoya/data_repos/datasets/bdd100k --num-gpus 1 --config-file BDD-Detection/faster-rcnn/vanilla.yaml --random-seed 0
+srun --kill-on-bad-exit=1 python TDL_apply_net.py --dataset-dir ../../bdd100k --test-dataset bdd_custom_val --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/standard_nms.yaml --random-seed 1 --image-corruption-level 0 --slurm-inference 1
 
 # dmesg -T
 printf "\n"

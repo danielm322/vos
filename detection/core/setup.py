@@ -96,7 +96,11 @@ def setup_arg_parser():
         type=int,
         default=0
     )
-
+    arg_parser.add_argument(
+        '--slurm-inference',
+        type=int,
+        default=0
+    )
     return arg_parser
 
 
@@ -192,6 +196,7 @@ def setup_config(args, random_seed=None, is_testing=False, ood=False):
     # breakpoint()
     # Allow new hyperparams in config files for the SOLVER
     cfg.SOLVER.set_new_allowed(True)
+    cfg.PROBABILISTIC_INFERENCE.set_new_allowed(True)
     cfg.merge_from_file(args.config_file)
 
     # Add dropout rate for faster RCNN box head

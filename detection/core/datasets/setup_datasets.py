@@ -244,12 +244,14 @@ def setup_coco_ood_dataset(dataset_dir):
         "coco_ood_val").thing_dataset_id_to_contiguous_id = metadata.COCO_THING_DATASET_ID_TO_CONTIGUOUS_ID
 
 def setup_coco_ood_bdd_dataset(dataset_dir):
+    # Ugly but desperate measure to be able to load coco ood test set at the same time as bdd test set
+    dataset_dir = "../../id_bdd_ood_coco"
     test_image_dir = os.path.join(dataset_dir, 'val2017')
 
     # test_json_annotations = os.path.join(
     #     dataset_dir, 'COCO-Format', 'val_coco_format.json')
     test_json_annotations = os.path.join(
-        dataset_dir, 'annotations', 'instances_val2017_ood_wrt_bdd_rm_overlap_subset.json')
+        dataset_dir, 'annotations', 'instances_val2017_ood_wrt_bdd_rm_overlap.json')
 
     register_coco_instances(
         "coco_ood_val_bdd",
