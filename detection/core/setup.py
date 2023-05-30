@@ -15,6 +15,7 @@ from detectron2.utils.logger import setup_logger
 
 # Project imports
 import core
+import mlflow
 
 from core.datasets.setup_datasets import setup_all_datasets
 from modeling.probabilistic_retinanet import ProbabilisticRetinaNet
@@ -161,8 +162,6 @@ def add_probabilistic_config(cfg):
     _C.VOS.STARTING_ITER = 12000
 
 
-
-
 def setup_config(args, random_seed=None, is_testing=False, ood=False):
     """
     Sets up config node with probabilistic detectron elements. Also sets up a fixed random seed for all scientific
@@ -191,6 +190,8 @@ def setup_config(args, random_seed=None, is_testing=False, ood=False):
         # breakpoint()
         cfg.DATASETS.OOD = tuple()
     # breakpoint()
+    # Allow new hyperparams in config files for the SOLVER
+    cfg.SOLVER.set_new_allowed(True)
     cfg.merge_from_file(args.config_file)
 
     # Add dropout rate for faster RCNN box head
@@ -262,3 +263,20 @@ def setup_config(args, random_seed=None, is_testing=False, ood=False):
     except AssertionError:
         print('hhh')
         return cfg
+
+
+# Functions to log parameters with mlflow
+def log_params_from_conf_node(params):
+    for param_name, element in params.items():
+        _explore_recursive(param_name, element)
+
+
+def _explore_recursive(parent_name, element):
+    if isinstance(element, CN):
+        for k, v in element.items():
+            if isinstance(v, CN):
+                _explore_recursive(f'{parent_name}.{k}', v)
+            else:
+                mlflow.log_param(f'{parent_name}.{k}', v)
+    elif type(element) in (str, int, bool, float):
+        mlflow.log_param(f'{parent_name}', element)

@@ -151,8 +151,9 @@ def setup_bdd_dataset(dataset_dir):
 
     train_json_annotations = os.path.join(
         dataset_dir, 'train_bdd_converted.json')
+    # TODO Add option to use the val subset or the complete val set
     test_json_annotations = os.path.join(
-        dataset_dir, 'val_bdd_converted_subset.json')
+        dataset_dir, 'val_bdd_converted.json')
 
     register_coco_instances(
         "bdd_custom_train",

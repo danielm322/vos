@@ -23,7 +23,18 @@ SOLVER:
   IMS_PER_BATCH: 16
   BASE_LR: 0.002
   STEPS: (60000, 80000)
-  MAX_ITER: 90000  # 17.4 epochs
+#  MAX_ITER: 90000  # 17.4 epochs
+  MAX_ITER: 52000  # 10 epochs
+#  MAX_ITER: 80  # Testing
   WARMUP_ITERS: 100
+  SAVE_LAST_CHECKPOINTS: 2
+  SAVE_BEST_CHECKPOINTS: 2
+  VAL_METRIC: "bbox/AP50"
+  VAL_METRIC_MODE: "max"
+  FREEZE_BACKBONE: True
+  FREEZE_RPN: True
+  FREEZE_BOX_POOLER: True
 DATALOADER:
     NUM_WORKERS: 8  # Depends on the available memory
+TEST:
+  EVAL_PERIOD: 400  # Has to be the same as Checkpoint period
