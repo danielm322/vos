@@ -61,7 +61,7 @@ coco_annotations_file = "../../id_bdd_ood_coco/annotations/instances_val2017_ood
 coco= COCOParser(coco_annotations_file)
 
 # Select the first x number of images to subset
-number_of_selected_images = 100
+number_of_selected_images = 1880
 
 # total number of images
 total_images = len(coco.get_imgIds())

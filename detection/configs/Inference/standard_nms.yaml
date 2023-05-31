@@ -14,10 +14,6 @@ PROBABILISTIC_INFERENCE:
         # Layer_type is either 'FC' (Fully Connected for a normal dropout leyer), or
         # 'Conv' (Convolutional for a Dropblock layer)
         LAYER_TYPE: 'FC'
-        # Save the raw MC samples as a file for later use
-        SAVE_MC_SAMPLES: True
-        # Save entropy calculations
-        SAVE_ENTROPY_SAMPLES: True
 
 
     OOD_DATASET: "coco_ood_val_bdd"
