@@ -1,8 +1,8 @@
 from typing import Union, List, Any, Callable, Dict, Optional, Tuple
 import numpy as np
-import pacmap
 import torch
 import torch.utils.data as torchdata
+from ls_ood_detect_cea import DetectorKDE, get_hz_scores
 from tqdm import tqdm
 from ls_ood_detect_cea.uncertainty_estimation import Hook
 from detectron2.data import get_detection_dataset_dicts
@@ -164,28 +164,78 @@ def build_in_distribution_valid_test_dataloader_args(cfg,
         else None, }
 
 
-def fit_pacmap(samples_ind: np.array,
-               neighbors: int = 25,
-               components: int = 2
-               ) -> Tuple[np.array, pacmap.PaCMAP]:
+def fit_evaluate_KDE(h_z_ind_valid_samples: np.array,
+                     h_z_ind_test_samples: np.array,
+                     h_z_ood_samples: np.array,
+                     normalize: bool, ) -> Tuple[np.array, np.array]:
     """
-    In-Distribution vs Out-of-Distribution Data Projection 2D Plot using PaCMAP algorithm.
-
-    :param components: Number of components in the output
-    :type components: int
-    :param samples_ind: In-Distribution (InD) samples numpy array
-    :type samples_ind: np.ndarray
-    :param neighbors: Number of nearest-neighbors considered for the PaCMAP algorithm
-    :type neighbors: int
+    This function fits and evaluates a KDE classifier using valid and test samples from an In Distribution set,
+    compared to an OoD set. It returns evaluation metrics to be logged with MLFlow
+    :param normalize: Whether to normalize the kde transformation
+    :param h_z_ind_valid_samples: InD valid samples to build the KDE
+    :param h_z_ind_test_samples: InD test samples to evaluate the KDE
+    :param h_z_ood_samples: OoD samples
     :return:
-    :rtype: None
     """
-    embedding = pacmap.PaCMAP(n_components=components, n_neighbors=neighbors, MN_ratio=0.5, FP_ratio=2.0)
-    samples_transformed = embedding.fit_transform(samples_ind, init="pca")
-    return samples_transformed, embedding
+    bdd_ds_shift_detector = DetectorKDE(train_embeddings=h_z_ind_valid_samples)
+    if normalize:
+        scores_bdd_test = get_hz_scores(hz_detector=bdd_ds_shift_detector,
+                                        samples=h_z_ind_test_samples)
+        scores_ood = get_hz_scores(hz_detector=bdd_ds_shift_detector,
+                                   samples=h_z_ood_samples)
+    else:
+        scores_bdd_test = bdd_ds_shift_detector.density.score_samples(h_z_ind_test_samples)
+        scores_ood = bdd_ds_shift_detector.density.score_samples(h_z_ood_samples)
+
+    return scores_bdd_test, scores_ood
 
 
-def apply_pacmap_transform(new_samples: np.array,
-                           original_samples: np.array,
-                           pm_instance: pacmap.PaCMAP) -> np.array:
-    return pm_instance.transform(X=new_samples, basis=original_samples)
+def adjust_mlflow_results_name(data_dict: dict, technique_name: str) -> dict:
+    """
+    This function simply adds the name of the dimension reduciton technique at the end of the metrics names,
+    In order to facilitate analysis with mlflow
+    :param data_dict: Metrics dictionary
+    :param technique_name: Either pca or pm (pacmap)
+    :return: Dictionary with changed keys
+    """
+    new_dict = dict()
+    for k, v in data_dict.items():
+        new_dict[k + f'_{technique_name}'] = v
+    return new_dict
+
+
+def reduce_mcd_samples(bdd_valid_mc_samples: torch.Tensor,
+                       bdd_test_mc_samples: torch.Tensor,
+                       ood_test_mc_samples: torch.Tensor,
+                       precomputed_mcd_runs: int,
+                       n_mcd_runs: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    This function takes precomputed Monte Carlo Dropout samples, and returns a smaller number of samples to work with
+    :param bdd_valid_mc_samples:
+    :param bdd_test_mc_samples:
+    :param ood_test_mc_samples:
+    :param precomputed_mcd_runs:
+    :param n_mcd_runs:
+    :return: Ind valid and test sets, OoD set
+    """
+    n_samples_bdd_valid = int(bdd_valid_mc_samples.shape[0] / precomputed_mcd_runs)
+    n_samples_bdd_test = int(bdd_test_mc_samples.shape[0] / precomputed_mcd_runs)
+    n_samples_ood = int(ood_test_mc_samples.shape[0] / precomputed_mcd_runs)
+    # Reshape to easily subset mcd samples
+    reshaped_bdd_valid = bdd_valid_mc_samples.reshape(n_samples_bdd_valid,
+                                                      precomputed_mcd_runs,
+                                                      bdd_valid_mc_samples.shape[1])
+    reshaped_bdd_test = bdd_test_mc_samples.reshape(n_samples_bdd_test,
+                                                    precomputed_mcd_runs,
+                                                    bdd_test_mc_samples.shape[1])
+    reshaped_ood_test = ood_test_mc_samples.reshape(n_samples_ood,
+                                                    precomputed_mcd_runs,
+                                                    ood_test_mc_samples.shape[1])
+    # Select the desired number of samples to take
+    bdd_valid_mc_samples = reshaped_bdd_valid[:, :n_mcd_runs, :].reshape(n_samples_bdd_valid * n_mcd_runs,
+                                                                         bdd_valid_mc_samples.shape[1])
+    bdd_test_mc_samples = reshaped_bdd_test[:, :n_mcd_runs, :].reshape(n_samples_bdd_test * n_mcd_runs,
+                                                                       bdd_test_mc_samples.shape[1])
+    ood_test_mc_samples = reshaped_ood_test[:, :n_mcd_runs, :].reshape(n_samples_ood * n_mcd_runs,
+                                                                       ood_test_mc_samples.shape[1])
+    return bdd_valid_mc_samples, bdd_test_mc_samples, ood_test_mc_samples
