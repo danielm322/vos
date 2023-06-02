@@ -15,5 +15,5 @@ PROBABILISTIC_INFERENCE:
         # 'Conv' (Convolutional for a Dropblock layer)
         LAYER_TYPE: 'FC'
 
-
-    OOD_DATASET: "coco_ood_val_bdd"
+    # Either 'openimages_ood_val' for openimages OoD or 'coco_ood_val_bdd'
+    OOD_DATASET: "openimages_ood_val"

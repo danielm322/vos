@@ -15,13 +15,13 @@ log_dir: logs_hydra/runs/${logger.mlflow.experiment_name}/${now:%Y-%m-%d_%H-%M-%
 
 # Datasets
 ood_dataset: "coco"
-bdd_valid_mcd_samples: "bdd_valid_8000_1000_10_mcd_samples.pt"
-bdd_test_mcd_samples: "bdd_test_2000_1000_10_mcd_samples.pt"
-ood_mcd_samples: "coco_ood_test_1880_1000_10_mcd_samples.pt"
+bdd_valid_mcd_samples: "bdd_valid_8000_1000_20_mcd_samples.pt"
+bdd_test_mcd_samples: "bdd_test_2000_1000_20_mcd_samples.pt"
+ood_mcd_samples: "coco_ood_test_1880_1000_20_mcd_samples.pt"
 # Precomputed entropies
-bdd_entropy_valid: "bdd_valid_8000_1000_10_MCD_h_z_samples.npy"
-bdd_entropy_test: "bdd_test_2000_1000_10_MCD_h_z_samples.npy"
-ood_entropy_test: "coco_ood_test_1880_1000_10_MCD_h_z_samples.npy"
+bdd_entropy_valid: "bdd_valid_8000_1000_20_mcd_h_z_samples.npy"
+bdd_entropy_test: "bdd_test_2000_1000_20_mcd_h_z_samples.npy"
+ood_entropy_test: "coco_ood_test_1880_1000_20_mcd_h_z_samples.npy"
 # Eval configuration
 precomputed_mcd_runs: 10
 # Number of Monte Carlo Dropout runs to use.

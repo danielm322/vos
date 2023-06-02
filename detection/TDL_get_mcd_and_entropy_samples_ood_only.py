@@ -1,0 +1,129 @@
+"""
+Script for performing Probabilistic inference using MC Dropout and testing the ood detection
+"""
+import numpy as np
+from detectron2.data import build_detection_test_loader
+
+import core
+import os
+import sys
+import torch
+from shutil import copyfile
+
+# This is very ugly. Essential for now but should be fixed.
+sys.path.append(os.path.join(core.top_dir(), 'src', 'detr'))
+
+# Detectron imports
+from detectron2.engine import launch
+# Project imports
+# from core.evaluation_tools.evaluation_utils import get_train_contiguous_id_to_test_thing_dataset_id_dict
+from core.setup import setup_config, setup_arg_parser
+from inference.inference_utils import get_inference_output_dir, build_predictor
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# from detectron2.data.detection_utils import read_image
+# Latent space OOD detection imports
+# The following matplotlib backend (TkAgg) seems to be the only one that easily can plot either on the main or in
+# the second screen. Remove or change the matplotlib backend if it doesn't work well
+from ls_ood_detect_cea.uncertainty_estimation import Hook
+from ls_ood_detect_cea.uncertainty_estimation import deeplabv3p_apply_dropout
+from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
+from TDL_helper_functions import build_in_distribution_valid_test_dataloader_args, build_data_loader, \
+    build_ood_dataloader_args, get_ls_mcd_samples
+
+
+def main(args) -> None:
+    """
+    The current script has as only purpose to get the Monte Carlo Dropout samples, save them,
+    and then calculate the entropy and save those quantities for further analysis. Only for one specified test set
+    :param args: Configuration class parameters
+    :return: None
+    """
+    # Setup config
+    cfg = setup_config(args,
+                       random_seed=args.random_seed,
+                       is_testing=True)
+    # Make sure only 1 data point is processed at a time. This simulates
+    # deployment.
+    cfg.defrost()
+    # cfg.DATALOADER.NUM_WORKERS = 4
+    cfg.SOLVER.IMS_PER_BATCH = 1
+
+    cfg.MODEL.DEVICE = device.type
+    # Set up number of cpu threads#
+    # torch.set_num_threads(cfg.DATALOADER.NUM_WORKERS)
+
+    # Create inference output directory and copy inference config file to keep
+    # track of experimental settings
+    inference_output_dir = get_inference_output_dir(
+        cfg['OUTPUT_DIR'],
+        args.test_dataset,
+        args.inference_config,
+        args.image_corruption_level)
+
+    os.makedirs(inference_output_dir, exist_ok=True)
+    copyfile(args.inference_config, os.path.join(
+        inference_output_dir, os.path.split(args.inference_config)[-1]))
+
+    ##################################################################################
+    # Prepare predictor and data loaders
+    ##################################################################################
+    # Build predictor
+    predictor = build_predictor(cfg)
+    # Place the Hook at the output of the last dropout layer
+    hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head)
+    # Put model in evaluation mode
+    predictor.model.eval()
+    # Activate Dropout layers
+    predictor.model.apply(deeplabv3p_apply_dropout)
+    # Build OoD test set dataloader
+    test_data_loader = build_detection_test_loader(
+        cfg, dataset_name=args.test_dataset)
+
+
+    ###################################################################################################
+    # Perform MCD inference and save samples
+    ###################################################################################################
+    # Get Monte-Carlo samples
+    # Get Monte-Carlo samples
+    ood_test_mc_samples = get_ls_mcd_samples(model=predictor,
+                                             data_loader=test_data_loader,
+                                             mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+                                             hook_dropout_layer=hooked_dropout_layer,
+                                             layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE)
+    del test_data_loader
+    # Save MC samples
+    num_images_to_save = int(ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
+    torch.save(ood_test_mc_samples,
+               f"./{args.test_dataset}_ood_test_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
+    # Since inference if memory-intense, we want to liberate as much memory as possible
+    del predictor
+    ########################################################################################
+    # Calculate and save entropy
+    ########################################################################################
+    # Calculate entropy ood test set
+    _, ood_h_z_np = get_dl_h_z(ood_test_mc_samples,
+                               mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
+    # Save entropy calculations
+    np.save(f"./{args.test_dataset}_ood_test_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+            ood_h_z_np)
+    # Analysis of the calculated samples is performed in another script!
+
+
+if __name__ == "__main__":
+    # Create arg parser
+    arg_parser = setup_arg_parser()
+    args = arg_parser.parse_args()
+
+    print("Command Line Args:", args)
+    # This function checks if there are multiple gpus, then it launches the distributed inference, otherwise it
+    # just launches the main function, i.e., would act as a function wrapper passing the args to main
+    launch(
+        main,
+        args.num_gpus,
+        num_machines=args.num_machines,
+        machine_rank=args.machine_rank,
+        dist_url=args.dist_url,
+        args=(args,),
+    )

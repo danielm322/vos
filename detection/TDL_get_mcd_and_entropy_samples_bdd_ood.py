@@ -25,8 +25,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Latent space OOD detection imports
 # The following matplotlib backend (TkAgg) seems to be the only one that easily can plot either on the main or in
 # the second screen. Remove or change the matplotlib backend if it doesn't work well
-import matplotlib
-matplotlib.use('TkAgg')
+# import matplotlib
+# matplotlib.use('TkAgg')
 from ls_ood_detect_cea.uncertainty_estimation import Hook
 from ls_ood_detect_cea.uncertainty_estimation import deeplabv3p_apply_dropout
 from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
@@ -37,7 +37,8 @@ from TDL_helper_functions import build_in_distribution_valid_test_dataloader_arg
 def main(args) -> None:
     """
     The current script has as only purpose to get the Monte Carlo Dropout samples, save them,
-    and then calculate the entropy and save those quantities for further analysis.
+    and then calculate the entropy and save those quantities for further analysis. This will do this for the InD BDD set
+    and one chosen OoD set
     :param args: Configuration class parameters
     :return: None
     """
@@ -107,7 +108,7 @@ def main(args) -> None:
     # Save MC samples
     num_images_to_save = int(bdd_valid_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     torch.save(bdd_valid_mc_samples,
-               f"./bdd_valid_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_mcd_samples.pt")
+               f"./bdd_valid_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
     # Get Monte-Carlo samples
     bdd_test_mc_samples = get_ls_mcd_samples(model=predictor,
                                              data_loader=ind_test_dl,
@@ -118,7 +119,7 @@ def main(args) -> None:
     # Save MC samples
     num_images_to_save = int(bdd_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     torch.save(bdd_test_mc_samples,
-               f"./bdd_test_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_mcd_samples.pt")
+               f"./bdd_test_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
     # Get Monte-Carlo samples
     ood_test_mc_samples = get_ls_mcd_samples(model=predictor,
                                              data_loader=ood_test_data_loader,
@@ -129,7 +130,7 @@ def main(args) -> None:
     # Save MC samples
     num_images_to_save = int(ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     torch.save(ood_test_mc_samples,
-               f"./ood_test_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_mcd_samples.pt")
+               f"./ood_test_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
     # Since inference if memory-intense, we want to liberate as much memory as possible
     del predictor
     ########################################################################################
@@ -139,19 +140,19 @@ def main(args) -> None:
     _, bdd_valid_h_z_np = get_dl_h_z(bdd_valid_mc_samples,
                                      mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     # Save entropy calculations
-    np.save(f"./bdd_valid_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_h_z_samples",
+    np.save(f"./bdd_valid_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
             bdd_valid_h_z_np)
     # Calculate entropy bdd test set
     _, bdd_test_h_z_np = get_dl_h_z(bdd_test_mc_samples,
                                     mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     # Save entropy calculations
-    np.save(f"./bdd_test_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_h_z_samples",
+    np.save(f"./bdd_test_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
             bdd_test_h_z_np)
     # Calculate entropy ood test set
     _, ood_h_z_np = get_dl_h_z(ood_test_mc_samples,
                                mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     # Save entropy calculations
-    np.save(f"./ood_test_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_h_z_samples",
+    np.save(f"./ood_test_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
             ood_h_z_np)
     # Analysis of the calculated samples is performed in another script!
 
