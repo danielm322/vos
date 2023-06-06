@@ -73,8 +73,12 @@ def main(args) -> None:
     ##################################################################################
     # Build predictor
     predictor = build_predictor(cfg)
-    # Place the Hook at the output of the last dropout layer
-    hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
+    if cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU:
+        # Hook the final activation of the module: the ReLU after the dropout
+        hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head)
+    else:
+        # Place the Hook at the output of the last dropout layer
+        hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
     # Put model in evaluation mode
     predictor.model.eval()
     # Activate Dropout layers

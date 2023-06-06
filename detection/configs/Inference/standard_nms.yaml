@@ -14,6 +14,8 @@ PROBABILISTIC_INFERENCE:
         # Layer_type is either 'FC' (Fully Connected for a normal dropout leyer), or
         # 'Conv' (Convolutional for a Dropblock layer)
         LAYER_TYPE: 'FC'
+        # HOOK_RELU: use the Hook on the ReLU layer after the dropout layer. If false: Hookd the dropout layer
+        HOOK_RELU: True
 
     # Either 'openimages_ood_val' for openimages OoD or 'coco_ood_val_bdd'
     OOD_DATASET: "openimages_ood_val"
