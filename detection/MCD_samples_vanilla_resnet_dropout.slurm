@@ -39,7 +39,7 @@ printf "\n"
 # nvidia-smi
 # printf "\n"
 printf "Start inference:"
-srun --kill-on-bad-exit=1 python TDL_apply_net.py --dataset-dir ../../bdd100k --test-dataset bdd_custom_val --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/standard_nms.yaml --random-seed 1 --image-corruption-level 0 --slurm-inference 1
+srun --kill-on-bad-exit=1 python TDL_get_mcd_and_entropy_samples_bdd_ood.py --dataset-dir ../../datasets/bdd100k --test-dataset bdd_custom_val --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/standard_nms.yaml --random-seed 1 --image-corruption-level 0
 
 # dmesg -T
 printf "\n"

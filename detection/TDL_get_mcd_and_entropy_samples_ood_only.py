@@ -72,7 +72,7 @@ def main(args) -> None:
     # Build predictor
     predictor = build_predictor(cfg)
     # Place the Hook at the output of the last dropout layer
-    hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head)
+    hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
     # Put model in evaluation mode
     predictor.model.eval()
     # Activate Dropout layers

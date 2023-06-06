@@ -96,11 +96,6 @@ def setup_arg_parser():
         type=int,
         default=0
     )
-    arg_parser.add_argument(
-        '--slurm-inference',
-        type=int,
-        default=0
-    )
     return arg_parser
 
 
