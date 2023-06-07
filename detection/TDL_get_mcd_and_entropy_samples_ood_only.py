@@ -69,7 +69,7 @@ def main(args) -> None:
     assert (
             cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT
             + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU
-            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_OBJECTNESS_LOGITS
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN
             + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE
             == 1
     ), " Select only one layer to be hooked"
@@ -81,7 +81,7 @@ def main(args) -> None:
     if cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT:
         # Hook the final activation of the module: the ReLU after the dropout
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head)
-    else:
+    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU:
         # Place the Hook at the output of the last dropout layer
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
     elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN:

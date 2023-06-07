@@ -28,5 +28,5 @@ PROBABILISTIC_INFERENCE:
 
 MODEL:
     RPN:
-        # Either "StandardRPNHead" to not use dropblock in the RPN, or "MCD_RPN_HEAD" to use dropblock on the RPN
+        # Either "StandardRPNHead" to not use dropblock in the RPN, or "MCDRpnHead" to use dropblock on the RPN
         HEAD_NAME: "MCDRpnHead"

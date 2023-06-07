@@ -10,7 +10,8 @@ from detectron2.layers import batched_nms
 from detectron2.structures import BoxMode, Boxes, Instances, pairwise_iou
 
 # Project imports
-from inference.image_corruptions import corruption_dict, corruption_tuple
+# Leave commented for FAI, and seems also not needed as we don't use image corruptions
+# from inference.image_corruptions import corruption_dict, corruption_tuple
 from inference.rcnn_predictor import GeneralizedRcnnPlainPredictor
 from modeling.probabilistic_generalized_rcnn import ProbabilisticGeneralizedRCNN
 
