@@ -10,10 +10,11 @@ import torch
 from shutil import copyfile
 
 # This is very ugly. Essential for now but should be fixed.
-sys.path.append(os.path.join(core.top_dir(), 'src', 'detr'))
+sys.path.append(os.path.join(core.top_dir(), "src", "detr"))
 
 # Detectron imports
 from detectron2.engine import launch
+
 # Project imports
 # from core.evaluation_tools.evaluation_utils import get_train_contiguous_id_to_test_thing_dataset_id_dict
 from core.setup import setup_config, setup_arg_parser
@@ -30,8 +31,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 from ls_ood_detect_cea.uncertainty_estimation import Hook
 from ls_ood_detect_cea.uncertainty_estimation import deeplabv3p_apply_dropout
 from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
-from TDL_helper_functions import build_in_distribution_valid_test_dataloader_args, build_data_loader, \
-    build_ood_dataloader_args, get_ls_mcd_samples
+from TDL_helper_functions import (
+    build_in_distribution_valid_test_dataloader_args,
+    build_data_loader,
+    build_ood_dataloader_args,
+    get_ls_mcd_samples,
+)
 
 
 def main(args) -> None:
@@ -43,9 +48,7 @@ def main(args) -> None:
     :return: None
     """
     # Setup config
-    cfg = setup_config(args,
-                       random_seed=args.random_seed,
-                       is_testing=True)
+    cfg = setup_config(args, random_seed=args.random_seed, is_testing=True)
     # Make sure only 1 data point is processed at a time. This simulates
     # deployment.
     cfg.defrost()
@@ -59,35 +62,50 @@ def main(args) -> None:
     # Create inference output directory and copy inference config file to keep
     # track of experimental settings
     inference_output_dir = get_inference_output_dir(
-        cfg['OUTPUT_DIR'],
+        cfg["OUTPUT_DIR"],
         args.test_dataset,
         args.inference_config,
-        args.image_corruption_level)
+        args.image_corruption_level,
+    )
 
     os.makedirs(inference_output_dir, exist_ok=True)
-    copyfile(args.inference_config, os.path.join(
-        inference_output_dir, os.path.split(args.inference_config)[-1]))
-
+    copyfile(
+        args.inference_config,
+        os.path.join(inference_output_dir, os.path.split(args.inference_config)[-1]),
+    )
+    # Assert only one layer is specified to be hooked
+    assert (
+        cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT
+        + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU
+        + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_OBJECTNESS_LOGITS
+        + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE
+        == 1
+    ), " Select only one layer to be hooked"
     ##################################################################################
     # Prepare predictor and data loaders
     ##################################################################################
     # Build predictor
     predictor = build_predictor(cfg)
-    if cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU:
+    if cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT:
         # Hook the final activation of the module: the ReLU after the dropout
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head)
-    else:
+    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU:
         # Place the Hook at the output of the last dropout layer
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
+    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_OBJECTNESS_LOGITS:
+        hooked_dropout_layer = Hook(
+            predictor.model.proposal_generator.rpn_head.dropblock
+        )
     # Put model in evaluation mode
     predictor.model.eval()
     # Activate Dropout layers
     predictor.model.apply(deeplabv3p_apply_dropout)
     # Build In Distribution valid and test data loader
-    ind_valid_dl_args, ind_test_dl_args = build_in_distribution_valid_test_dataloader_args(
-        cfg,
-        dataset_name=args.test_dataset,
-        split_proportion=0.8
+    (
+        ind_valid_dl_args,
+        ind_test_dl_args,
+    ) = build_in_distribution_valid_test_dataloader_args(
+        cfg, dataset_name=args.test_dataset, split_proportion=0.8
     )
     ind_valid_dl = build_data_loader(**ind_valid_dl_args)
     ind_test_dl = build_data_loader(**ind_test_dl_args)
@@ -103,61 +121,91 @@ def main(args) -> None:
     # Perform MCD inference and save samples
     ###################################################################################################
     # Get Monte-Carlo samples
-    bdd_valid_mc_samples = get_ls_mcd_samples(model=predictor,
-                                              data_loader=ind_valid_dl,
-                                              mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-                                              hook_dropout_layer=hooked_dropout_layer,
-                                              layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE)
+    bdd_valid_mc_samples = get_ls_mcd_samples(
+        model=predictor,
+        data_loader=ind_valid_dl,
+        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+        hook_dropout_layer=hooked_dropout_layer,
+        layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
+    )
     del ind_valid_dl
     # Save MC samples
-    num_images_to_save = int(bdd_valid_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
-    torch.save(bdd_valid_mc_samples,
-               f"./bdd_valid_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
+    num_images_to_save = int(
+        bdd_valid_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+    )
+    torch.save(
+        bdd_valid_mc_samples,
+        f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+    )
     # Get Monte-Carlo samples
-    bdd_test_mc_samples = get_ls_mcd_samples(model=predictor,
-                                             data_loader=ind_test_dl,
-                                             mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-                                             hook_dropout_layer=hooked_dropout_layer,
-                                             layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE)
+    bdd_test_mc_samples = get_ls_mcd_samples(
+        model=predictor,
+        data_loader=ind_test_dl,
+        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+        hook_dropout_layer=hooked_dropout_layer,
+        layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
+    )
     del ind_test_dl
     # Save MC samples
-    num_images_to_save = int(bdd_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
-    torch.save(bdd_test_mc_samples,
-               f"./bdd_test_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
+    num_images_to_save = int(
+        bdd_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+    )
+    torch.save(
+        bdd_test_mc_samples,
+        f"./bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+    )
     # Get Monte-Carlo samples
-    ood_test_mc_samples = get_ls_mcd_samples(model=predictor,
-                                             data_loader=ood_test_data_loader,
-                                             mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-                                             hook_dropout_layer=hooked_dropout_layer,
-                                             layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE)
+    ood_test_mc_samples = get_ls_mcd_samples(
+        model=predictor,
+        data_loader=ood_test_data_loader,
+        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+        hook_dropout_layer=hooked_dropout_layer,
+        layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
+    )
     del ood_test_data_loader
     # Save MC samples
-    num_images_to_save = int(ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
-    torch.save(ood_test_mc_samples,
-               f"./ood_test_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
+    num_images_to_save = int(
+        ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+    )
+    torch.save(
+        ood_test_mc_samples,
+        f"./ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+    )
     # Since inference if memory-intense, we want to liberate as much memory as possible
     del predictor
     ########################################################################################
     # Calculate and save entropy
     ########################################################################################
     # Calculate entropy for bdd valid set
-    _, bdd_valid_h_z_np = get_dl_h_z(bdd_valid_mc_samples,
-                                     mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
+    _, bdd_valid_h_z_np = get_dl_h_z(
+        bdd_valid_mc_samples,
+        mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+    )
     # Save entropy calculations
-    np.save(f"./bdd_valid_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-            bdd_valid_h_z_np)
+    np.save(
+        f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}__{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        bdd_valid_h_z_np,
+    )
     # Calculate entropy bdd test set
-    _, bdd_test_h_z_np = get_dl_h_z(bdd_test_mc_samples,
-                                    mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
+    _, bdd_test_h_z_np = get_dl_h_z(
+        bdd_test_mc_samples,
+        mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+    )
     # Save entropy calculations
-    np.save(f"./bdd_test_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-            bdd_test_h_z_np)
+    np.save(
+        f"./bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        bdd_test_h_z_np,
+    )
     # Calculate entropy ood test set
-    _, ood_h_z_np = get_dl_h_z(ood_test_mc_samples,
-                               mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
+    _, ood_h_z_np = get_dl_h_z(
+        ood_test_mc_samples,
+        mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+    )
     # Save entropy calculations
-    np.save(f"./ood_test_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-            ood_h_z_np)
+    np.save(
+        f"./ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        ood_h_z_np,
+    )
     # Analysis of the calculated samples is performed in another script!
 
 

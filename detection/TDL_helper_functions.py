@@ -33,7 +33,7 @@ def get_ls_mcd_samples(model: torch.nn.Module,
      :return: Monte-Carlo Dropout samples for the input dataloader
      :rtype: Tensor
      """
-    assert layer_type in ("FC", "Conv"), "Layer type must be either 'FC' or 'Conv'"
+    assert layer_type in ("FC", "Conv", "RPN"), "Layer type must be either 'FC', 'RPN' or 'Conv'"
     with torch.no_grad():
         with tqdm(total=len(data_loader)) as pbar:
             dl_imgs_latent_mcd_samples = []
@@ -50,6 +50,8 @@ def get_ls_mcd_samples(model: torch.nn.Module,
                         # Remove useless dimensions:
                         latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=1)
                         latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=2)
+                    elif layer_type == "RPN":
+                        latent_mcd_sample = latent_mcd_sample.flatten()
                     else:
                         # Aggregate the second dimension (dim 1) to keep the proposed boxes dimension
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=1)
