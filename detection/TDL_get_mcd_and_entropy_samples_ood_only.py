@@ -30,7 +30,7 @@ from ls_ood_detect_cea.uncertainty_estimation import Hook
 from ls_ood_detect_cea.uncertainty_estimation import deeplabv3p_apply_dropout
 from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
 from TDL_helper_functions import build_in_distribution_valid_test_dataloader_args, build_data_loader, \
-    build_ood_dataloader_args, get_ls_mcd_samples
+    build_ood_dataloader_args, get_ls_mcd_samples_rcnn
 
 
 def main(args) -> None:
@@ -65,18 +65,29 @@ def main(args) -> None:
     os.makedirs(inference_output_dir, exist_ok=True)
     copyfile(args.inference_config, os.path.join(
         inference_output_dir, os.path.split(args.inference_config)[-1]))
-
+    # Assert only one layer is specified to be hooked
+    assert (
+            cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_OBJECTNESS_LOGITS
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE
+            == 1
+    ), " Select only one layer to be hooked"
     ##################################################################################
     # Prepare predictor and data loaders
     ##################################################################################
     # Build predictor
     predictor = build_predictor(cfg)
-    if cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU:
+    if cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT:
         # Hook the final activation of the module: the ReLU after the dropout
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head)
     else:
         # Place the Hook at the output of the last dropout layer
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
+    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN:
+        hooked_dropout_layer = Hook(
+            predictor.model.proposal_generator.rpn_head.dropblock
+        )
     # Put model in evaluation mode
     predictor.model.eval()
     # Activate Dropout layers
@@ -85,22 +96,21 @@ def main(args) -> None:
     test_data_loader = build_detection_test_loader(
         cfg, dataset_name=args.test_dataset)
 
-
     ###################################################################################################
     # Perform MCD inference and save samples
     ###################################################################################################
     # Get Monte-Carlo samples
     # Get Monte-Carlo samples
-    ood_test_mc_samples = get_ls_mcd_samples(model=predictor,
-                                             data_loader=test_data_loader,
-                                             mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-                                             hook_dropout_layer=hooked_dropout_layer,
-                                             layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE)
+    ood_test_mc_samples = get_ls_mcd_samples_rcnn(model=predictor,
+                                                  data_loader=test_data_loader,
+                                                  mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+                                                  hook_dropout_layer=hooked_dropout_layer,
+                                                  layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE)
     del test_data_loader
     # Save MC samples
     num_images_to_save = int(ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     torch.save(ood_test_mc_samples,
-               f"./{args.test_dataset}_ood_test_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
+               f"./{args.test_dataset}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt")
     # Since inference if memory-intense, we want to liberate as much memory as possible
     del predictor
     ########################################################################################
@@ -110,8 +120,9 @@ def main(args) -> None:
     _, ood_h_z_np = get_dl_h_z(ood_test_mc_samples,
                                mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS)
     # Save entropy calculations
-    np.save(f"./{args.test_dataset}_ood_test_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-            ood_h_z_np)
+    np.save(
+        f"./{args.test_dataset}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        ood_h_z_np)
     # Analysis of the calculated samples is performed in another script!
 
 

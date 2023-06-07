@@ -35,7 +35,7 @@ from TDL_helper_functions import (
     build_in_distribution_valid_test_dataloader_args,
     build_data_loader,
     build_ood_dataloader_args,
-    get_ls_mcd_samples,
+    get_ls_mcd_samples_rcnn,
 )
 
 
@@ -92,7 +92,7 @@ def main(args) -> None:
     elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU:
         # Place the Hook at the output of the last dropout layer
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
-    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_OBJECTNESS_LOGITS:
+    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN:
         hooked_dropout_layer = Hook(
             predictor.model.proposal_generator.rpn_head.dropblock
         )
@@ -121,7 +121,7 @@ def main(args) -> None:
     # Perform MCD inference and save samples
     ###################################################################################################
     # Get Monte-Carlo samples
-    bdd_valid_mc_samples = get_ls_mcd_samples(
+    bdd_valid_mc_samples = get_ls_mcd_samples_rcnn(
         model=predictor,
         data_loader=ind_valid_dl,
         mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
@@ -138,7 +138,7 @@ def main(args) -> None:
         f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Get Monte-Carlo samples
-    bdd_test_mc_samples = get_ls_mcd_samples(
+    bdd_test_mc_samples = get_ls_mcd_samples_rcnn(
         model=predictor,
         data_loader=ind_test_dl,
         mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
@@ -155,7 +155,7 @@ def main(args) -> None:
         f"./bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Get Monte-Carlo samples
-    ood_test_mc_samples = get_ls_mcd_samples(
+    ood_test_mc_samples = get_ls_mcd_samples_rcnn(
         model=predictor,
         data_loader=ood_test_data_loader,
         mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,

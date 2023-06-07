@@ -12,11 +12,11 @@ from detectron2.data.samplers import InferenceSampler
 
 
 # Get latent space Monte Carlo Dropout samples
-def get_ls_mcd_samples(model: torch.nn.Module,
-                       data_loader: torch.utils.data.dataloader.DataLoader,
-                       mcd_nro_samples: int,
-                       hook_dropout_layer: Hook,
-                       layer_type: str) -> torch.tensor:
+def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
+                            data_loader: torch.utils.data.dataloader.DataLoader,
+                            mcd_nro_samples: int,
+                            hook_dropout_layer: Hook,
+                            layer_type: str) -> torch.tensor:
     """
      Get Monte-Carlo samples from any torch model Dropout or Dropblock Layer
         THIS FUNCTION SHOULD BE ADDED INTO THE LS OOD DETECTION LIBRARY
@@ -48,7 +48,7 @@ def get_ls_mcd_samples(model: torch.nn.Module,
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=2, keepdim=True)
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
                         # Remove useless dimensions:
-                        latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=1)
+                        latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=3)
                         latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=2)
                     elif layer_type == "RPN":
                         latent_mcd_sample = latent_mcd_sample.flatten()

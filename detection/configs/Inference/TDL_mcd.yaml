@@ -14,11 +14,11 @@ PROBABILISTIC_INFERENCE:
         # Layer_type is either 'FC' (Fully Connected for a normal dropout leyer),
         # 'RPN' for the output of the RPN's objectnes logits (Dropblock), or
         # 'Conv' (Convolutional for a Dropblock layer)
-        LAYER_TYPE: 'RPN'
+        LAYER_TYPE: 'Conv'
         # HOOK_RELU: use the Hook on the ReLU layer after the dropout layer. If false: Hookd the dropout layer
         HOOK_RELU_AFTER_DROPOUT: False
         HOOK_DROPOUT_BEFORE_RELU: False
-        HOOK_DROPBLOCK_AFTER_OBJECTNESS_LOGITS: True
+        HOOK_DROPBLOCK_RPN: True
         HOOK_DROPBLOCK_AFTER_BACKBONE: False
         DROPBLOCK_PROB: 0.5
         DROPBLOCK_SIZE: 1

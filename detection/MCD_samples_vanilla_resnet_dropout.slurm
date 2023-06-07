@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=0-04:00:00
+#SBATCH --time=0-03:00:00
 #SBATCH --partition=gpu40G,gpuv100
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -39,7 +39,7 @@ printf "\n"
 # nvidia-smi
 # printf "\n"
 printf "Start inference:"
-srun --kill-on-bad-exit=1 python TDL_get_mcd_and_entropy_samples_bdd_ood.py --dataset-dir ../../datasets/bdd100k --test-dataset bdd_custom_val --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/standard_nms.yaml --random-seed 1 --image-corruption-level 0
+srun --kill-on-bad-exit=1 python TDL_get_mcd_and_entropy_samples_bdd_ood.py --dataset-dir ../../datasets/bdd100k --test-dataset bdd_custom_val --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/TDL_mcd.yaml --random-seed 1 --image-corruption-level 0
 
 # dmesg -T
 printf "\n"
