@@ -88,6 +88,10 @@ def main(args) -> None:
         hooked_dropout_layer = Hook(
             predictor.model.proposal_generator.rpn_head.dropblock
         )
+    elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE:
+        hooked_dropout_layer = Hook(
+            predictor.model.backbone
+        )
     # Put model in evaluation mode
     predictor.model.eval()
     # Activate Dropout layers

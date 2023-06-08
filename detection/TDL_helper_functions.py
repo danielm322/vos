@@ -2,6 +2,7 @@ from typing import Union, List, Any, Callable, Dict, Optional, Tuple
 import numpy as np
 import torch
 import torch.utils.data as torchdata
+from dropblock import DropBlock2D
 from ls_ood_detect_cea import DetectorKDE, get_hz_scores
 from tqdm import tqdm
 from ls_ood_detect_cea.uncertainty_estimation import Hook
@@ -9,6 +10,10 @@ from detectron2.data import get_detection_dataset_dicts
 from detectron2.data import DatasetMapper, DatasetFromList, MapDataset
 from detectron2.data.build import trivial_batch_collator
 from detectron2.data.samplers import InferenceSampler
+
+# Ugly but fast way to test to hook the backbone: get raw output, apply dropblock
+# inside the following function
+dropblock_ext = DropBlock2D(drop_prob=0.5, block_size=3)
 
 
 # Get latent space Monte Carlo Dropout samples
@@ -33,9 +38,9 @@ def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
      :return: Monte-Carlo Dropout samples for the input dataloader
      :rtype: Tensor
      """
-    assert layer_type in ("FC", "Conv", "RPN"), "Layer type must be either 'FC', 'RPN' or 'Conv'"
+    assert layer_type in ("FC", "Conv", "RPN", "backbone"), "Layer type must be either 'FC', 'RPN' or 'Conv'"
     with torch.no_grad():
-        with tqdm(total=len(data_loader)) as pbar:
+        with tqdm(total=len(data_loader), desc="Extracting MCD samples") as pbar:
             dl_imgs_latent_mcd_samples = []
             for i, image in enumerate(data_loader):
                 img_mcd_samples = []
@@ -52,6 +57,17 @@ def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
                         latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=2)
                     elif layer_type == "RPN":
                         latent_mcd_sample = latent_mcd_sample.flatten()
+                    elif layer_type == "backbone":
+                        # Apply dropblock
+                        for k, v in latent_mcd_sample.items():
+                            latent_mcd_sample[k] = dropblock_ext(v)
+                            # Get image HxW mean:
+                            latent_mcd_sample[k] = torch.mean(latent_mcd_sample[k], dim=2, keepdim=True)
+                            latent_mcd_sample[k] = torch.mean(latent_mcd_sample[k], dim=3, keepdim=True)
+                            # Remove useless dimensions:
+                            latent_mcd_sample[k] = torch.squeeze(latent_mcd_sample[k], dim=3)
+                            latent_mcd_sample[k] = torch.squeeze(latent_mcd_sample[k], dim=2)
+                        latent_mcd_sample = torch.cat(list(latent_mcd_sample.values()), dim=1)
                     else:
                         # Aggregate the second dimension (dim 1) to keep the proposed boxes dimension
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=1)

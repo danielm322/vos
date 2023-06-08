@@ -12,14 +12,15 @@ PROBABILISTIC_INFERENCE:
         ENABLE: True
         NUM_RUNS: 10
         # Layer_type is either 'FC' (Fully Connected for a normal dropout leyer),
+        # 'backbone', to get the tensor of outputs from backbone
         # 'RPN' for the output of the RPN's objectnes logits (Dropblock), or
         # 'Conv' (Convolutional for a Dropblock layer)
-        LAYER_TYPE: 'Conv'
+        LAYER_TYPE: 'backbone'
         # HOOK_RELU: use the Hook on the ReLU layer after the dropout layer. If false: Hookd the dropout layer
         HOOK_RELU_AFTER_DROPOUT: False
         HOOK_DROPOUT_BEFORE_RELU: False
-        HOOK_DROPBLOCK_RPN: True
-        HOOK_DROPBLOCK_AFTER_BACKBONE: False
+        HOOK_DROPBLOCK_RPN: False
+        HOOK_DROPBLOCK_AFTER_BACKBONE: True
         DROPBLOCK_PROB: 0.5
         DROPBLOCK_SIZE: 1
 
@@ -29,4 +30,4 @@ PROBABILISTIC_INFERENCE:
 MODEL:
     RPN:
         # Either "StandardRPNHead" to not use dropblock in the RPN, or "MCDRpnHead" to use dropblock on the RPN
-        HEAD_NAME: "MCDRpnHead"
+        HEAD_NAME: "StandardRPNHead"
