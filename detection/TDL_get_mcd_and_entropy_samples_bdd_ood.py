@@ -94,7 +94,7 @@ def main(args) -> None:
         hooked_dropout_layer = Hook(predictor.model.roi_heads.box_head.fc_dropout2)
     elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN:
         hooked_dropout_layer = Hook(
-            predictor.model.proposal_generator.rpn_head.identity
+            predictor.model.proposal_generator.rpn_head.dropblock
         )
     elif cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE:
         hooked_dropout_layer = Hook(
