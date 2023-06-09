@@ -56,7 +56,8 @@ def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
                         latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=3)
                         latent_mcd_sample = torch.squeeze(latent_mcd_sample, dim=2)
                     elif layer_type == "RPN":
-                        latent_mcd_sample = latent_mcd_sample.flatten()
+                        # Already processes in the forward pass of the RPN head
+                        pass
                     elif layer_type == "backbone":
                         # Apply dropblock
                         for k, v in latent_mcd_sample.items():
