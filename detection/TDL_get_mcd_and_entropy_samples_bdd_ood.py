@@ -187,7 +187,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}__{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         bdd_valid_h_z_np,
     )
     # Calculate entropy bdd test set

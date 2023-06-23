@@ -7,9 +7,8 @@ from omegaconf import DictConfig
 from os.path import join as op_join
 from pytorch_lightning import seed_everything as pl_seed_everything
 from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
-from ls_ood_detect_cea import plot_samples_pacmap, apply_pca_ds_split, apply_pca_transform, DetectorKDE, \
-    get_hz_detector_results, plot_roc_ood_detector, get_hz_scores, save_roc_ood_detector, fit_pacmap, \
-    apply_pacmap_transform
+from ls_ood_detect_cea import plot_samples_pacmap, apply_pca_ds_split, apply_pca_transform, \
+    get_hz_detector_results, save_roc_ood_detector, fit_pacmap, apply_pacmap_transform
 from tqdm import tqdm
 from TDL_param_logging import log_params_from_omegaconf_dict
 from TDL_helper_functions import fit_evaluate_KDE, adjust_mlflow_results_name, reduce_mcd_samples
@@ -23,6 +22,8 @@ def main(cfg: DictConfig) -> None:
     """
     This function performs analysis on already calculated MCD samples in another script.
     Evaluates BDD as In distribution dataset against either COCO or Openimages as described in the VOS repository.
+    This script assumes without checking that the number of MCD runs is exactly the same for the
+    InD (BDD) data and the OoD data.
     :return: None
     """
     ############################
@@ -34,6 +35,11 @@ def main(cfg: DictConfig) -> None:
     ###############################################
     # Load precalculated MCD samples              #
     ###############################################
+    # Inspect correct naming of files and dataset
+    assert cfg.ood_dataset in cfg.ood_mcd_samples and cfg.ood_dataset in cfg.ood_entropy_test, "OoO Dataset name and preloaded files must coincide"
+    assert cfg.location in cfg.ood_mcd_samples and cfg.location in cfg.ood_entropy_test, "Location of samples must coincide with filename"
+    assert "h_z" in cfg.ood_entropy_test and "h_z" not in cfg.ood_mcd_samples
+    assert cfg.ood_dataset in ('coco', 'openimages', "gtsrb", "svhn"), "OoD dataset must be either COCO, Open Images svhn or gtsrb"
     bdd_valid_mc_samples = torch.load(f=op_join(cfg.data_dir, cfg.bdd_valid_mcd_samples),
                                       map_location=device)
     bdd_test_mc_samples = torch.load(f=op_join(cfg.data_dir, cfg.bdd_test_mcd_samples),
@@ -57,9 +63,8 @@ def main(cfg: DictConfig) -> None:
     #################################################################
     # Select number of proposals from RPN to use
     #################################################################
-    # The max number of proposals is 1000, as hard-coded coming from the RPN
-    max_n_proposals = 1000
-    assert cfg.use_n_proposals <= max_n_proposals, "use_n_proposals must be less than or equal to the 1000 RPN proposals"
+    max_n_proposals = cfg.max_n_proposals
+    assert cfg.use_n_proposals <= max_n_proposals, "use_n_proposals must be less than or equal to the max proposals"
     # Compute entropy only of n_mcd_runs < cfg.precomputed_mcd_runs, otherwise, load precomputed entropy
     if cfg.use_n_proposals < max_n_proposals and cfg.n_mcd_runs < cfg.precomputed_mcd_runs:
         # Randomly select the columns to keep:
@@ -105,27 +110,36 @@ def main(cfg: DictConfig) -> None:
     # Setup MLFlow for experiment tracking
     # MlFlow configuration
     experiment_name = cfg.logger.mlflow.experiment_name
+    mlflow.set_tracking_uri("http://10.8.33.50:5050")
     existing_exp = mlflow.get_experiment_by_name(experiment_name)
     if not existing_exp:
         mlflow.create_experiment(
             name=experiment_name,
-            tags=cfg.logger.mlflow.tags,
+            #tags=cfg.logger.mlflow.tags,
         )
     experiment = mlflow.set_experiment(experiment_name=experiment_name)
-    mlflow.set_tracking_uri(cfg.logger.mlflow.tracking_uri)
+    # mlflow.set_tracking_uri(cfg.logger.mlflow.tracking_uri)
+    # Let us define a run name automatically.
+    if cfg.ood_dataset == "coco":
+        mlflow_run_dataset = "cc"
+    elif cfg.ood_dataset == "openimages":
+        mlflow_run_dataset = "oi"
+    else:
+        mlflow_run_dataset = "gtsrb"
+    mlflow_run_name = f"{mlflow_run_dataset}_{cfg.location}_{cfg.n_mcd_runs}_mcd_{cfg.use_n_proposals}_props"
 
     ##########################################################################
     # Start the evaluation run
     ##########################################################################
     # Define mlflow run to log metrics and parameters
-    with mlflow.start_run(experiment_id=experiment.experiment_id) as run:
+    with mlflow.start_run(experiment_id=experiment.experiment_id, run_name=mlflow_run_name) as run:
         # Log parameters with mlflow
         log_params_from_omegaconf_dict(cfg)
         # Check entropy 2D projection
         pacmap_2d_proj_plot = plot_samples_pacmap(samples_ind=bdd_test_h_z_np,
                                                   samples_ood=ood_h_z_np,
                                                   neighbors=cfg.n_pacmap_neighbors,
-                                                  title="BDD - COCO: $\hat{H}_{\phi}(z_i \mid x)$",
+                                                  title=cfg.ind_dataset + " - " + cfg.ood_dataset + " : $\hat{H}_{\phi}(z_i \mid x)$",
                                                   return_figure=True)
         mlflow.log_figure(figure=pacmap_2d_proj_plot,
                           artifact_file="figs/h_z_pacmap.png")
@@ -157,8 +171,10 @@ def main(cfg: DictConfig) -> None:
             mlflow.log_metrics(results_for_mlflow, step=n_components)
             pca_metrics = pca_metrics.append(results_ood)
         # Plot all PCA evaluations in one figure
-        roc_curves_pca = save_roc_ood_detector(results_table=pca_metrics,
-                                               plot_title="ROC Curve COCO OoD Detection PCA")
+        roc_curves_pca = save_roc_ood_detector(
+            results_table=pca_metrics,
+            plot_title=f"ROC {cfg.ind_dataset} vs {cfg.ood_dataset} OoD Detection PCA {cfg.location}"
+        )
         # Log the plot with mlflow
         mlflow.log_figure(figure=roc_curves_pca,
                           artifact_file="figs/roc_curves_pca.png")
@@ -197,11 +213,15 @@ def main(cfg: DictConfig) -> None:
             pacmap_metrics = pacmap_metrics.append(results_ood)
 
         # Plot all PacMAP evaluations in one figure
-        roc_curves_pacmap = save_roc_ood_detector(results_table=pacmap_metrics,
-                                                  plot_title="ROC Curve COCO OoD Detection PacMAP")
+        roc_curves_pacmap = save_roc_ood_detector(
+            results_table=pacmap_metrics,
+            plot_title=f"ROC {cfg.ind_dataset} vs {cfg.ood_dataset} OoD Detection PacMAP {cfg.location}"
+        )
         # Log the plot with mlflow
         mlflow.log_figure(figure=roc_curves_pacmap,
                           artifact_file="figs/roc_curves_pacmap.png")
+
+        mlflow.end_run()
 
 
 if __name__ == "__main__":
