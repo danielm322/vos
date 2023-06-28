@@ -2,11 +2,12 @@
 
 mlflow:
     _target_: pytorch_lightning.loggers.MLFlowLogger
-    experiment_name: "Evaluate_MCD_OoD_detection"
-    tags:
-        stage: evaluation
-        dropout: True
-        dropout_location: "box head"
-        vos: False
+    # USED: Evaluate_MCD_OoD_detection, Evaluate_MCD_OoD_detection_CIFAR10
+    experiment_name: "Evaluate_MCD_OoD_detection_CIFAR10"
+    #tags:
+    #    stage: evaluation
+    #    dropout: True
+    #    dropout_location: "box head"
+    #    vos: False
 
-    tracking_uri: "file:${work_dir}/mlruns"
+    # tracking_uri: "file:${work_dir}/mlruns"

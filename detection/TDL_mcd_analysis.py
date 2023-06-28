@@ -37,7 +37,7 @@ def main(cfg: DictConfig) -> None:
     ###############################################
     # Inspect correct naming of files and dataset
     assert cfg.ood_dataset in cfg.ood_mcd_samples and cfg.ood_dataset in cfg.ood_entropy_test, "OoO Dataset name and preloaded files must coincide"
-    assert cfg.location in cfg.ood_mcd_samples and cfg.location in cfg.ood_entropy_test, "Location of samples must coincide with filename"
+    assert cfg.layer_type in cfg.ood_mcd_samples and cfg.layer_type in cfg.ood_entropy_test, "Location of samples must coincide with filename"
     assert "h_z" in cfg.ood_entropy_test and "h_z" not in cfg.ood_mcd_samples
     assert cfg.ood_dataset in ('coco', 'openimages', "gtsrb", "svhn"), "OoD dataset must be either COCO, Open Images svhn or gtsrb"
     bdd_valid_mc_samples = torch.load(f=op_join(cfg.data_dir, cfg.bdd_valid_mcd_samples),
@@ -124,9 +124,11 @@ def main(cfg: DictConfig) -> None:
         mlflow_run_dataset = "cc"
     elif cfg.ood_dataset == "openimages":
         mlflow_run_dataset = "oi"
-    else:
+    elif cfg.ood_dataset == "gtsrb":
         mlflow_run_dataset = "gtsrb"
-    mlflow_run_name = f"{mlflow_run_dataset}_{cfg.location}_{cfg.n_mcd_runs}_mcd_{cfg.use_n_proposals}_props"
+    else:
+        mlflow_run_dataset = "svhn"
+    mlflow_run_name = f"{mlflow_run_dataset}_{cfg.layer_type}_{cfg.n_mcd_runs}_mcd_{cfg.use_n_proposals}_props"
 
     ##########################################################################
     # Start the evaluation run
@@ -173,7 +175,7 @@ def main(cfg: DictConfig) -> None:
         # Plot all PCA evaluations in one figure
         roc_curves_pca = save_roc_ood_detector(
             results_table=pca_metrics,
-            plot_title=f"ROC {cfg.ind_dataset} vs {cfg.ood_dataset} OoD Detection PCA {cfg.location}"
+            plot_title=f"ROC {cfg.ind_dataset} vs {cfg.ood_dataset} OoD Detection PCA {cfg.layer_type}"
         )
         # Log the plot with mlflow
         mlflow.log_figure(figure=roc_curves_pca,
@@ -215,7 +217,7 @@ def main(cfg: DictConfig) -> None:
         # Plot all PacMAP evaluations in one figure
         roc_curves_pacmap = save_roc_ood_detector(
             results_table=pacmap_metrics,
-            plot_title=f"ROC {cfg.ind_dataset} vs {cfg.ood_dataset} OoD Detection PacMAP {cfg.location}"
+            plot_title=f"ROC {cfg.ind_dataset} vs {cfg.ood_dataset} OoD Detection PacMAP {cfg.layer_type}"
         )
         # Log the plot with mlflow
         mlflow.log_figure(figure=roc_curves_pacmap,

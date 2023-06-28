@@ -4,6 +4,7 @@
 defaults:
     - _self_
     - logger: mlflow.yaml
+    - model: model.yaml
 
     # enable color logging
     # - override hydra/hydra_logging: colorlog
@@ -14,26 +15,34 @@ data_dir: ${work_dir}/MCD_evaluation_data/
 log_dir: logs_hydra/runs/${logger.mlflow.experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
 
 # Datasets
-ood_dataset: "coco"
-bdd_valid_mcd_samples: "bdd_valid_8000_1000_20_mcd_samples.pt"
-bdd_test_mcd_samples: "bdd_test_2000_1000_20_mcd_samples.pt"
-ood_mcd_samples: "coco_ood_test_1880_1000_20_mcd_samples.pt"
+ind_dataset: "cifar10"
+ood_dataset: "gtsrb"
+bdd_valid_mcd_samples: "cifar10/cifar10_valid_Conv_8000_1024_10_mcd_samples.pt"
+bdd_test_mcd_samples: "cifar10/cifar10_test_Conv_2000_1024_10_mcd_samples.pt"
+ood_mcd_samples: "cifar10/gtsrb_test_Conv_2274_1024_10_mcd_samples.pt"
 # Precomputed entropies
-bdd_entropy_valid: "bdd_valid_8000_1000_20_mcd_h_z_samples.npy"
-bdd_entropy_test: "bdd_test_2000_1000_20_mcd_h_z_samples.npy"
-ood_entropy_test: "coco_ood_test_1880_1000_20_mcd_h_z_samples.npy"
+bdd_entropy_valid: "cifar10/cifar10_valid_Conv_8000_1024_10_mcd_h_z_samples.npy"
+bdd_entropy_test: "cifar10/cifar10_test_Conv_2000_1024_10_mcd_h_z_samples.npy"
+ood_entropy_test: "cifar10/gtsrb_ood_test_Conv_2274_1024_10_mcd_h_z_samples.npy"
 # Eval configuration
 precomputed_mcd_runs: 10
 # Number of Monte Carlo Dropout runs to use.
 n_mcd_runs: 10
 # This parameter controls the raw number of proposals from RPN to be used.
 # If it is <1000, a random sampler will take that number of samples to continue with the rest of the algorithm
-use_n_proposals: 1000
-n_pca_components: [1, 2, 3, 4, 6, 8, 10, 12]
+use_n_proposals: 1024
+max_n_proposals: 1024
+#n_pca_components: [1, 2, 3, 4, 6, 8, 10, 12]
+n_pca_components: [1, 2, 3, 4, 6, 10, 14, 16, 18, 20, 24]
+#n_pca_components: [2, 4, 8, 12, 16, 20, 24, 28, 32]
 n_pacmap_neighbors: 10
-n_pacmap_components: [2, 3, 4, 5, 6, 8, 10, 12]
+#n_pacmap_components: [2, 3, 4, 5, 6, 8, 10, 12]
+n_pacmap_components: [2, 3, 4, 6, 8, 12]
 normalize_kde_prediction: False
 seed: 42
+layer_type: "Conv"
+model_version: 17
+
 
 hydra:
     # output paths for hydra logs
