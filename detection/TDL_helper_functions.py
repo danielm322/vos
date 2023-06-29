@@ -2,6 +2,7 @@ from typing import Union, List, Any, Callable, Dict, Optional, Tuple
 import numpy as np
 import torch
 import torch.utils.data as torchdata
+from torch.nn.functional import avg_pool2d
 from dropblock import DropBlock2D
 from ls_ood_detect_cea import DetectorKDE, get_hz_scores
 from tqdm import tqdm
@@ -13,8 +14,8 @@ from detectron2.data.samplers import InferenceSampler
 
 # Ugly but fast way to test to hook the backbone: get raw output, apply dropblock
 # inside the following function
-dropblock_ext = DropBlock2D(drop_prob=0.5, block_size=3)
-
+dropblock_ext = DropBlock2D(drop_prob=0.4, block_size=1)
+dropout_ext = torch.nn.Dropout(p=0.5)
 
 # Get latent space Monte Carlo Dropout samples
 def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
@@ -145,18 +146,22 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
                             if location == 2:
                                 # To conserve the most info, while also aggregating: let us reshape then average
                                 assert latent_mcd_sample.shape == torch.Size([1, 128, 8, 8])
+                                # assert latent_mcd_sample.shape == torch.Size([1, 128, 16, 16])
                                 # latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
-                                latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
-                                latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                # latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                # Perform average pooling over latent representations
+                                latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=3, padding=1)
+                                # latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=2, padding=2)
+                                # latent_mcd_sample = torch.squeeze(latent_mcd_sample)
                                 latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
                             elif location == 1:
                                 assert latent_mcd_sample.shape == torch.Size([1, 64, 32, 32])
                                 # latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
-                                latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
-
-                                latent_mcd_sample = latent_mcd_sample.reshape(1, 64, 16, -1)
-                                latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
-                                latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                # latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                # latent_mcd_sample = latent_mcd_sample.reshape(1, 64, 16, -1)
+                                # latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                # latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=2, padding=2)
                                 latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
                             elif location == 3:
                                 assert latent_mcd_sample.shape == torch.Size([1, 256, 2, 2])

@@ -31,10 +31,12 @@ EXTRACT_OOD = True
 @hydra.main(version_base=None, config_path="configs/MCD_evaluation", config_name="config.yaml")
 def main(cfg: DictConfig) -> None:
     assert 0 <= cfg.model.sn + cfg.model.half_sn <= 1
+    img_size = cfg.model.image_size
     if cfg.model.normalize_inputs:
         train_transforms = torchvision.transforms.Compose(
             [
-                torchvision.transforms.RandomCrop(32, padding=4),
+                torchvision.transforms.Resize(size=(img_size, img_size)),
+                torchvision.transforms.RandomCrop(img_size, padding=int(img_size/8)),
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.ToTensor(),
                 cifar10_normalization(),
@@ -43,7 +45,8 @@ def main(cfg: DictConfig) -> None:
     else:
         train_transforms = torchvision.transforms.Compose(
             [
-                torchvision.transforms.RandomCrop(32, padding=4),
+                torchvision.transforms.Resize(size=(img_size, img_size)),
+                torchvision.transforms.RandomCrop(img_size, padding=int(img_size/8)),
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.ToTensor(),
             ]
@@ -52,6 +55,7 @@ def main(cfg: DictConfig) -> None:
         test_transforms = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
+                torchvision.transforms.Resize(size=(img_size, img_size)),
                 cifar10_normalization(),
             ]
         )
@@ -59,6 +63,7 @@ def main(cfg: DictConfig) -> None:
         test_transforms = torchvision.transforms.Compose(
             [
                 torchvision.transforms.ToTensor(),
+                torchvision.transforms.Resize(size=(img_size, img_size)),
             ]
         )
 
@@ -103,12 +108,14 @@ def main(cfg: DictConfig) -> None:
     # Version 14:  Dropblock after 2n conv block no fc no dropout SN leaky full_avg_pool input [0, 1]
     # Version 15:  Dropblock after 2n conv block no fc no dropout fullSN leaky full_avg_pool input [0, 1]
     # Version 16:  Dropblock after 2n conv block no fc no dropout fullSN leaky input [0, 1]
-    # Version 17:  Dropblock after 2n conv block no fc no dropout fullSN leaky input avg_pool (dropblock layer1)[0, 1]
-    model.load_from_checkpoint("./cifar10_logs/lightning_logs/version_17/checkpoints/epoch=29-step=4710.ckpt")
+    # Version 17:  Dropblock after 1st conv block no fc no dropout fullSN leaky input avg_pool [0, 1]
+    # Version 18:  Dropblock after 2n conv block no fc no dropout fullSN leaky avg_pool imsize64 input  [0, 1]
+    model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch=29-step=4710.ckpt")
     model.to(device)
     # Split test set into valid and test sets
     from sklearn.model_selection import train_test_split
     valid_set, test_set = train_test_split(cifar10_dm.dataset_test, test_size=0.2, random_state=42)
+    del cifar10_dm
     valid_data_loader = DataLoader(valid_set, batch_size=1)
     test_data_loader = DataLoader(test_set, batch_size=1)
 
@@ -116,12 +123,12 @@ def main(cfg: DictConfig) -> None:
     if cfg.model.normalize_inputs:
         ood_transforms = torchvision.transforms.Compose(
                     [torchvision.transforms.ToTensor(),
-                     torchvision.transforms.Resize(size=(32, 32)),
+                     torchvision.transforms.Resize(size=(img_size, img_size)),
                      cifar10_normalization()])
     else:
         ood_transforms = torchvision.transforms.Compose(
                     [torchvision.transforms.ToTensor(),
-                     torchvision.transforms.Resize(size=(32, 32)),
+                     torchvision.transforms.Resize(size=(img_size, img_size)),
                      ])
     if cfg.ood_dataset == "gtsrb":
         # Load GTSRB
@@ -176,7 +183,7 @@ def main(cfg: DictConfig) -> None:
             ind_valid_mc_samples,
             f"./{SAVE_FOLDER}/cifar10_valid_{cfg.layer_type}_{num_images_to_save}_{ind_valid_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
-
+        del valid_data_loader
         ind_test_mc_samples = get_ls_mcd_samples_baselines(
                 model=model,
                 data_loader=test_data_loader,
@@ -195,6 +202,7 @@ def main(cfg: DictConfig) -> None:
             ind_test_mc_samples,
             f"./{SAVE_FOLDER}/cifar10_test_{cfg.layer_type}_{num_images_to_save}_{ind_test_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
+        del test_data_loader
     if EXTRACT_OOD:
         ood_test_mc_samples = get_ls_mcd_samples_baselines(
                 model=model,
@@ -214,7 +222,7 @@ def main(cfg: DictConfig) -> None:
             ood_test_mc_samples,
             f"./{SAVE_FOLDER}/{cfg.ood_dataset}_test_{cfg.layer_type}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
-
+        del ood_test_loader
     ########################################################################################
     # Calculate and save entropy
     ########################################################################################
@@ -229,6 +237,7 @@ def main(cfg: DictConfig) -> None:
             f"./{SAVE_FOLDER}/cifar10_valid_{cfg.layer_type}_{ind_valid_h_z_np.shape[0]}_{ind_valid_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
             ind_valid_h_z_np,
         )
+        del ind_test_mc_samples
         # Calculate entropy bdd test set
         _, ind_test_h_z_np = get_dl_h_z(
             ind_test_mc_samples,
@@ -239,6 +248,7 @@ def main(cfg: DictConfig) -> None:
             f"./{SAVE_FOLDER}/cifar10_test_{cfg.layer_type}_{ind_test_h_z_np.shape[0]}_{ind_test_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
             ind_test_h_z_np,
         )
+        del ind_test_mc_samples
     if EXTRACT_OOD:
         # Calculate entropy ood test set
         _, ood_h_z_np = get_dl_h_z(

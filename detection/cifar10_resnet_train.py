@@ -26,10 +26,12 @@ NUM_WORKERS = int(os.cpu_count() / 2)
 @hydra.main(version_base=None, config_path="configs/MCD_evaluation/model/", config_name="model.yaml")
 def main(cfg: DictConfig) -> None:
     assert 0 <= cfg.sn + cfg.half_sn <= 1
+    img_size = cfg.image_size
     if cfg.normalize_inputs:
         train_transforms = torchvision.transforms.Compose(
             [
-                torchvision.transforms.RandomCrop(32, padding=4),
+                torchvision.transforms.Resize(size=(img_size, img_size)),
+                torchvision.transforms.RandomCrop(img_size, padding=int(img_size/8)),
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.ToTensor(),
                 cifar10_normalization(),
@@ -38,7 +40,8 @@ def main(cfg: DictConfig) -> None:
     else:
         train_transforms = torchvision.transforms.Compose(
             [
-                torchvision.transforms.RandomCrop(32, padding=4),
+                torchvision.transforms.Resize(size=(img_size, img_size)),
+                torchvision.transforms.RandomCrop(img_size, padding=int(img_size/8)),
                 torchvision.transforms.RandomHorizontalFlip(),
                 torchvision.transforms.ToTensor(),
             ]
@@ -46,6 +49,7 @@ def main(cfg: DictConfig) -> None:
     if cfg.normalize_inputs:
         test_transforms = torchvision.transforms.Compose(
             [
+                torchvision.transforms.Resize(size=(img_size, img_size)),
                 torchvision.transforms.ToTensor(),
                 cifar10_normalization(),
             ]
@@ -53,6 +57,7 @@ def main(cfg: DictConfig) -> None:
     else:
         test_transforms = torchvision.transforms.Compose(
             [
+                torchvision.transforms.Resize(size=(img_size, img_size)),
                 torchvision.transforms.ToTensor(),
             ]
         )
