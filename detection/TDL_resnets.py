@@ -320,7 +320,7 @@ def create_model(spectral_normalization: bool = False,
                  half_sn: bool = False,
                  activation: str = "relu",
                  avg_pool: bool = False,
-                 num_classes: int = 10):
+                 num_classes: int = 1000):
     if spectral_normalization:
         model = _resnet(
             block=BasicBlockSpectralNormalisation,
@@ -357,7 +357,7 @@ def create_model(spectral_normalization: bool = False,
 class LitResnet(LightningModule):
     def __init__(self,
                  lr=0.05,
-                 num_classes: int = 10,
+                 num_classes: int = 1000,
                  spectral_normalization: bool = False,
                  fifth_conv_layer: bool = False,
                  extra_fc_layer: bool = False,

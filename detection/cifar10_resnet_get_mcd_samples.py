@@ -236,6 +236,7 @@ def main(cfg: DictConfig) -> None:
         _, ind_valid_h_z_np = get_dl_h_z(
             ind_valid_mc_samples,
             mcd_samples_nro=cfg.precomputed_mcd_runs,
+            parallel_run=cfg.parallel_entropy_calculation
         )
         # Save entropy calculations
         np.save(
@@ -247,6 +248,7 @@ def main(cfg: DictConfig) -> None:
         _, ind_test_h_z_np = get_dl_h_z(
             ind_test_mc_samples,
             mcd_samples_nro=cfg.precomputed_mcd_runs,
+            parallel_run=cfg.parallel_entropy_calculation
         )
         # Save entropy calculations
         np.save(
@@ -259,6 +261,7 @@ def main(cfg: DictConfig) -> None:
         _, ood_h_z_np = get_dl_h_z(
             ood_test_mc_samples,
             mcd_samples_nro=cfg.precomputed_mcd_runs,
+            parallel_run=cfg.parallel_entropy_calculation
         )
         # Save entropy calculations
         np.save(

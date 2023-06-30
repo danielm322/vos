@@ -44,7 +44,7 @@ layer_type: "Conv"
 # Reduction method for the hooked MCD samples: either 'mean' or 'avgpool'
 reduction_method: "avgpool"
 model_version: 17
-
+parallel_entropy_calculation: True
 
 hydra:
     # output paths for hydra logs

@@ -11,7 +11,7 @@ from ls_ood_detect_cea import plot_samples_pacmap, apply_pca_ds_split, apply_pca
     get_hz_detector_results, save_roc_ood_detector, fit_pacmap, apply_pacmap_transform
 from tqdm import tqdm
 from TDL_param_logging import log_params_from_omegaconf_dict
-from TDL_helper_functions import fit_evaluate_KDE, adjust_mlflow_results_name, reduce_mcd_samples
+from TDL_mcd_helper_fns import fit_evaluate_KDE, adjust_mlflow_results_name, reduce_mcd_samples
 import warnings
 # Filter the append warning from pandas
 warnings.simplefilter(action='ignore', category=FutureWarning)
