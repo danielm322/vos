@@ -112,6 +112,7 @@ def main(cfg: DictConfig) -> None:
     # Version 17:  Dropblock after 1st conv block no fc no dropout fullSN leaky input avg_pool [0, 1]
     # Version 18:  Dropblock after 2n conv block no fc no dropout fullSN leaky avg_pool imsize64 input  [0, 1]
     # Version 19:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool input  [0, 1]
+    # Version 20:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize128 input  [0, 1]
     model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch=29-step=4710.ckpt")
     model.to(device)
     # Split test set into valid and test sets
@@ -176,7 +177,8 @@ def main(cfg: DictConfig) -> None:
                 device=device,
                 architecture="resnet",
                 location=cfg.model.dropblock_location,
-                reduction_method=cfg.reduction_method
+                reduction_method=cfg.reduction_method,
+                input_size=cfg.model.image_size
             )
 
         num_images_to_save = int(
@@ -196,7 +198,8 @@ def main(cfg: DictConfig) -> None:
                 device=device,
                 architecture="resnet",
                 location=cfg.model.dropblock_location,
-                reduction_method=cfg.reduction_method
+                reduction_method=cfg.reduction_method,
+                input_size=cfg.model.image_size
             )
 
         num_images_to_save = int(
@@ -217,7 +220,8 @@ def main(cfg: DictConfig) -> None:
                 device=device,
                 architecture="resnet",
                 location=cfg.model.dropblock_location,
-                reduction_method=cfg.reduction_method
+                reduction_method=cfg.reduction_method,
+                input_size=cfg.model.image_size
             )
 
         num_images_to_save = int(

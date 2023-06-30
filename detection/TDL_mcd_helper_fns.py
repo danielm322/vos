@@ -96,7 +96,8 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
                                  device: str,
                                  architecture: str,
                                  location: int,
-                                 reduction_method: str) -> torch.tensor:
+                                 reduction_method: str,
+                                 input_size: int) -> torch.tensor:
     """
      Get Monte-Carlo samples from any torch model Dropout or Dropblock Layer
         THIS FUNCTION SHOULD BE ADDED INTO THE LS OOD DETECTION LIBRARY
@@ -117,6 +118,7 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
      """
     assert layer_type in ("FC", "Conv"), "Layer type must be either 'FC' or 'Conv'"
     assert architecture in ("small", "resnet"), "Only 'small' or 'resnet' are supported"
+    assert input_size in (32, 64, 128)
     if architecture == "resnet" and location in (1, 2):
         assert reduction_method in ("mean", "avgpool"), "Only mean and avg pool reduction method supported for resnet"
     with torch.no_grad():
@@ -145,19 +147,38 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
                             # For 2nd conv layer block of resnet 18:
                             if location == 2:
                                 # To conserve the most info, while also aggregating: let us reshape then average
-                                assert latent_mcd_sample.shape == torch.Size([1, 128, 8, 8])
-                                # assert latent_mcd_sample.shape == torch.Size([1, 128, 16, 16])
-                                # latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
-                                if reduction_method == "mean":
-                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
-                                    latent_mcd_sample = torch.squeeze(latent_mcd_sample)
-                                # Avg pool
+                                if input_size == 32:
+                                    assert latent_mcd_sample.shape == torch.Size([1, 128, 8, 8])
+                                    if reduction_method == "mean":
+                                        latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                        latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                    # Avg pool
+                                    else:
+                                        # Perform average pooling over latent representations
+                                        # For input of size 32
+                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=3, padding=1)
+                                # Input size 64
+                                elif input_size == 64:
+                                    assert latent_mcd_sample.shape == torch.Size([1, 128, 16, 16])
+                                    if reduction_method == "mean":
+                                        latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                        latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
+                                        latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                        latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                    else:
+                                        # For input of size 64
+                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=2, padding=2)
+                                # Input size 128
                                 else:
-                                    # Perform average pooling over latent representations
-                                    # For input of size 32
-                                    latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=3, padding=1)
-                                    # For input of size 64
-                                    # latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=2, padding=2)
+                                    assert latent_mcd_sample.shape == torch.Size([1, 128, 32, 32])
+                                    if reduction_method == "mean":
+                                        latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                        latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
+                                        latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                        latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                    else:
+                                        # For input of size 64
+                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=8, stride=4, padding=4)
 
                                 latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
                             elif location == 1:

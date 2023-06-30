@@ -2,8 +2,8 @@ dropblock: True
 extra_fc: False
 dropout: False
 fifth_conv_layer: False
-sn: True
-half_sn: False
+sn: False
+half_sn: True
 activation: "leaky"
 normalize_inputs: False
 dropblock_prob: 0.5
@@ -12,4 +12,4 @@ dropout_prob: 0.5
 avg_pool: True
 # dropblock location at the output of the nth residual layer
 dropblock_location: 2
-image_size: 32
+image_size: 128
