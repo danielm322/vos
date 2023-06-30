@@ -384,7 +384,7 @@ class LitResnet(LightningModule):
             self.model.layer5 = nn.Sequential(
                 conv3x3(512, 512, groups=1, dilation=1),
                 nn.ReLU(),
-                DropBlock2D(dropblock_prob, block_size=3)
+                DropBlock2D(dropblock_prob, block_size=dropblock_size)
             )
         if self.extra_fc_layer:
             self.model.fc_dropout = nn.Linear(512, 512)

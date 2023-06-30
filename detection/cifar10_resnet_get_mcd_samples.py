@@ -8,11 +8,11 @@ import torchvision
 from omegaconf import DictConfig
 from pl_bolts.datamodules import CIFAR10DataModule
 from pl_bolts.transforms.dataset_normalizations import cifar10_normalization
-from pytorch_lightning import LightningModule, Trainer, seed_everything
+from pytorch_lightning import seed_everything
 from torch.utils.data import DataLoader
 # from dropblock import DropBlock2D
 from ls_ood_detect_cea.uncertainty_estimation import Hook, deeplabv3p_apply_dropout, get_dl_h_z
-from TDL_helper_functions import get_ls_mcd_samples_baselines
+from TDL_mcd_helper_fns import get_ls_mcd_samples_baselines
 from TDL_resnets import LitResnet
 seed_everything(7)
 
@@ -110,6 +110,7 @@ def main(cfg: DictConfig) -> None:
     # Version 16:  Dropblock after 2n conv block no fc no dropout fullSN leaky input [0, 1]
     # Version 17:  Dropblock after 1st conv block no fc no dropout fullSN leaky input avg_pool [0, 1]
     # Version 18:  Dropblock after 2n conv block no fc no dropout fullSN leaky avg_pool imsize64 input  [0, 1]
+    # Version 19:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool input  [0, 1]
     model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch=29-step=4710.ckpt")
     model.to(device)
     # Split test set into valid and test sets
@@ -173,7 +174,8 @@ def main(cfg: DictConfig) -> None:
                 layer_type=cfg.layer_type,
                 device=device,
                 architecture="resnet",
-                location=cfg.model.dropblock_location
+                location=cfg.model.dropblock_location,
+                reduction_method=cfg.reduction_method
             )
 
         num_images_to_save = int(
@@ -192,7 +194,8 @@ def main(cfg: DictConfig) -> None:
                 layer_type=cfg.layer_type,
                 device=device,
                 architecture="resnet",
-                location=cfg.model.dropblock_location
+                location=cfg.model.dropblock_location,
+                reduction_method=cfg.reduction_method
             )
 
         num_images_to_save = int(
@@ -212,7 +215,8 @@ def main(cfg: DictConfig) -> None:
                 layer_type=cfg.layer_type,
                 device=device,
                 architecture="resnet",
-                location=cfg.model.dropblock_location
+                location=cfg.model.dropblock_location,
+                reduction_method=cfg.reduction_method
             )
 
         num_images_to_save = int(
@@ -237,7 +241,7 @@ def main(cfg: DictConfig) -> None:
             f"./{SAVE_FOLDER}/cifar10_valid_{cfg.layer_type}_{ind_valid_h_z_np.shape[0]}_{ind_valid_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
             ind_valid_h_z_np,
         )
-        del ind_test_mc_samples
+        del ind_valid_mc_samples
         # Calculate entropy bdd test set
         _, ind_test_h_z_np = get_dl_h_z(
             ind_test_mc_samples,

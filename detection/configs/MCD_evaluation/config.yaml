@@ -41,6 +41,8 @@ n_pacmap_components: [2, 3, 4, 6, 8, 12]
 normalize_kde_prediction: False
 seed: 42
 layer_type: "Conv"
+# Reduction method for the hooked MCD samples: either 'mean' or 'avgpool'
+reduction_method: "avgpool"
 model_version: 17
 
 
