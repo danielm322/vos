@@ -167,7 +167,7 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
                                         latent_mcd_sample = torch.squeeze(latent_mcd_sample)
                                     else:
                                         # For input of size 64
-                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=2, padding=2)
+                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=8, stride=6, padding=2)
                                 # Input size 128
                                 else:
                                     assert latent_mcd_sample.shape == torch.Size([1, 128, 32, 32])
@@ -178,7 +178,7 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
                                         latent_mcd_sample = torch.squeeze(latent_mcd_sample)
                                     else:
                                         # For input of size 64
-                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=8, stride=4, padding=4)
+                                        latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=16, stride=12, padding=4)
 
                                 latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
                             elif location == 1:
