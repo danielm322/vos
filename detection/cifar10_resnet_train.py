@@ -71,6 +71,7 @@ def main(cfg: DictConfig) -> None:
         val_transforms=test_transforms,
     )
     model = LitResnet(lr=0.05,
+                      num_classes=10,
                       spectral_normalization=cfg.sn,
                       fifth_conv_layer=cfg.fifth_conv_layer,
                       extra_fc_layer=cfg.extra_fc,

@@ -319,7 +319,8 @@ def _resnet(
 def create_model(spectral_normalization: bool = False,
                  half_sn: bool = False,
                  activation: str = "relu",
-                 avg_pool: bool = False):
+                 avg_pool: bool = False,
+                 num_classes: int = 10):
     if spectral_normalization:
         model = _resnet(
             block=BasicBlockSpectralNormalisation,
@@ -327,7 +328,8 @@ def create_model(spectral_normalization: bool = False,
             weights=None,
             progress=True,
             activation=activation,
-            avg_pool=avg_pool
+            avg_pool=avg_pool,
+            num_classes=num_classes
         )
     else:
         model = _resnet(
@@ -337,7 +339,8 @@ def create_model(spectral_normalization: bool = False,
             progress=True,
             half_sn=half_sn,
             activation=activation,
-            avg_pool=avg_pool
+            avg_pool=avg_pool,
+            num_classes=num_classes
         )
     # else:
     #     model = torchvision.models.resnet18(pretrained=False, num_classes=10)
@@ -354,6 +357,7 @@ def create_model(spectral_normalization: bool = False,
 class LitResnet(LightningModule):
     def __init__(self,
                  lr=0.05,
+                 num_classes: int = 10,
                  spectral_normalization: bool = False,
                  fifth_conv_layer: bool = False,
                  extra_fc_layer: bool = False,
@@ -372,7 +376,8 @@ class LitResnet(LightningModule):
         self.model = create_model(spectral_normalization=spectral_normalization,
                                   half_sn=half_sn,
                                   activation=activation,
-                                  avg_pool=avg_pool)
+                                  avg_pool=avg_pool,
+                                  num_classes=num_classes)
         self.fifth_conv_layer = fifth_conv_layer
         self.extra_fc_layer = extra_fc_layer
         self.dropout = dropout

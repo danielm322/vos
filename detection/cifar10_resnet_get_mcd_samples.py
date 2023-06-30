@@ -79,6 +79,7 @@ def main(cfg: DictConfig) -> None:
     cifar10_dm.setup(stage="test")
 
     model = LitResnet(lr=0.05,
+                      num_classes=10,
                       spectral_normalization=cfg.model.sn,
                       fifth_conv_layer=cfg.model.fifth_conv_layer,
                       extra_fc_layer=cfg.model.extra_fc,
