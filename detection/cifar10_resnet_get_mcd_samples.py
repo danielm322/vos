@@ -14,6 +14,8 @@ from torch.utils.data import DataLoader
 from ls_ood_detect_cea.uncertainty_estimation import Hook, deeplabv3p_apply_dropout, get_dl_h_z
 from TDL_mcd_helper_fns import get_ls_mcd_samples_baselines, get_input_transformations
 from TDL_resnets import LitResnet
+from TDL_datasets import SVHNDataModule
+
 seed_everything(7)
 
 PATH_DATASETS = "./cifar10_data"
@@ -32,18 +34,34 @@ EXTRACT_OOD = True
 def main(cfg: DictConfig) -> None:
     assert 0 <= cfg.model.sn + cfg.model.half_sn <= 1
     img_size = cfg.model.image_size
-    train_transforms, test_transforms = get_input_transformations(cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
-                                                                  img_size=cfg.model.image_size)
-    cifar10_dm = CIFAR10DataModule(
-        data_dir=PATH_DATASETS,
-        batch_size=BATCH_SIZE,
-        num_workers=NUM_WORKERS,
-        train_transforms=train_transforms,
-        test_transforms=test_transforms,
-        val_transforms=test_transforms,
+    train_transforms, test_transforms = get_input_transformations(
+        cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
+        img_size=cfg.model.image_size,
+        extra_augmentations=cfg.extra_data_augmentations
     )
+    # Load InD dataset
+    if cfg.ind_dataset == "cifar10":
+        PATH_DATASETS = "./cifar10_data"
+        ind_dm = CIFAR10DataModule(
+            data_dir=PATH_DATASETS,
+            batch_size=BATCH_SIZE,
+            num_workers=NUM_WORKERS,
+            train_transforms=train_transforms,
+            test_transforms=test_transforms,
+            val_transforms=test_transforms,
+        )
+    # SVHN dataset
+    else:
+        PATH_DATASETS = "./svhn_data"
+        ind_dm = SVHNDataModule(
+            data_dir=PATH_DATASETS,
+            batch_size=BATCH_SIZE,
+            num_workers=NUM_WORKERS,
+            train_transform=train_transforms,
+            test_transform=test_transforms,
+        )
     # Load test set
-    cifar10_dm.setup(stage="test")
+    ind_dm.setup(stage="test")
 
     model = LitResnet(lr=0.05,
                       num_classes=10,
@@ -84,29 +102,19 @@ def main(cfg: DictConfig) -> None:
     model.to(device)
     # Split test set into valid and test sets
     from sklearn.model_selection import train_test_split
-    valid_set, test_set = train_test_split(cifar10_dm.dataset_test, test_size=0.2, random_state=42)
-    del cifar10_dm
+    valid_set, test_set = train_test_split(ind_dm.dataset_test, test_size=0.2, random_state=42)
+    del ind_dm
     valid_data_loader = DataLoader(valid_set, batch_size=1)
     test_data_loader = DataLoader(test_set, batch_size=1)
 
-    # Define ood set transforms
-    if cfg.model.normalize_inputs:
-        ood_transforms = torchvision.transforms.Compose(
-                    [torchvision.transforms.ToTensor(),
-                     torchvision.transforms.Resize(size=(img_size, img_size)),
-                     cifar10_normalization()])
-    else:
-        ood_transforms = torchvision.transforms.Compose(
-                    [torchvision.transforms.ToTensor(),
-                     torchvision.transforms.Resize(size=(img_size, img_size)),
-                     ])
+    # Load OoD Data
     if cfg.ood_dataset == "gtsrb":
         # Load GTSRB
         ood_test_data = torchvision.datasets.GTSRB(
             './gtsrb_data/',
             split="test",
             download=True,
-            transform=ood_transforms
+            transform=test_transforms
         )
         test_size = 0.18
     # Load SVHN
@@ -115,7 +123,7 @@ def main(cfg: DictConfig) -> None:
             './svhn_data/',
             split="test",
             download=True,
-            transform=ood_transforms
+            transform=test_transforms
         )
         test_size = 0.08
     valid_set_ood, test_set_ood = train_test_split(ood_test_data, test_size=test_size, random_state=42)
