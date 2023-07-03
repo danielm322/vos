@@ -25,7 +25,8 @@ def main(cfg: DictConfig) -> None:
     assert cfg.ind_dataset in ("cifar10", "svhn")
     train_transforms, test_transforms = get_input_transformations(
         cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
-        img_size=cfg.model.image_size
+        img_size=cfg.model.image_size,
+        extra_augmentations=cfg.extra_data_augmentations
     )
     if cfg.ind_dataset == "cifar10":
         PATH_DATASETS = "./cifar10_data"
@@ -65,7 +66,7 @@ def main(cfg: DictConfig) -> None:
                       )
 
     trainer = Trainer(
-        max_epochs=30,
+        max_epochs=45,
         accelerator="auto",
         devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
         logger=CSVLogger(save_dir="cifar10_logs/"),

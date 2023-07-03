@@ -46,6 +46,7 @@ layer_type: "Conv"
 reduction_method: "avgpool"
 model_version: 17
 parallel_entropy_calculation: True
+extra_data_augmentations: True
 
 hydra:
     # output paths for hydra logs

@@ -303,31 +303,42 @@ def reduce_mcd_samples(bdd_valid_mc_samples: torch.Tensor,
     return bdd_valid_mc_samples, bdd_test_mc_samples, ood_test_mc_samples
 
 
-def get_input_transformations(cifar10_normalize_inputs: bool, img_size: int):
+def get_input_transformations(cifar10_normalize_inputs: bool, img_size: int, extra_augmentations: bool):
     if cifar10_normalize_inputs:
-        train_transforms = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize(size=(img_size, img_size)),
-                torchvision.transforms.RandomCrop(img_size, padding=int(img_size / 8)),
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.RandomApply(
-                    torch.nn.ModuleList([
-                        torchvision.transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.)
-                    ]),
-                    p=0.3
-                ),
-                torchvision.transforms.RandomGrayscale(p=0.1),
-                torchvision.transforms.RandomVerticalFlip(p=0.4),
-                torchvision.transforms.RandomApply(
-                    torch.nn.ModuleList([
-                        torchvision.transforms.RandomAffine(degrees=20, translate=(0.2, 0.2), scale=(0.01, 0.2))
-                    ]),
-                    p=0.3
-                ),
-                cifar10_normalization() if cifar10_normalize_inputs else None,
-                torchvision.transforms.ToTensor(),
-            ]
-        )
+        if extra_augmentations:
+            train_transforms = torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.Resize(size=(img_size, img_size)),
+                    torchvision.transforms.RandomCrop(img_size, padding=int(img_size / 8)),
+                    torchvision.transforms.RandomHorizontalFlip(),
+                    torchvision.transforms.RandomApply(
+                        torch.nn.ModuleList([
+                            torchvision.transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.)
+                        ]),
+                        p=0.3
+                    ),
+                    torchvision.transforms.RandomGrayscale(p=0.1),
+                    torchvision.transforms.RandomVerticalFlip(p=0.4),
+                    torchvision.transforms.RandomApply(
+                        torch.nn.ModuleList([
+                            torchvision.transforms.RandomAffine(degrees=20, translate=(0.2, 0.2), scale=(0.01, 0.2))
+                        ]),
+                        p=0.3
+                    ),
+                    cifar10_normalization(),
+                    torchvision.transforms.ToTensor(),
+                ]
+            )
+        else:
+            train_transforms = torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.Resize(size=(img_size, img_size)),
+                    torchvision.transforms.RandomCrop(img_size, padding=int(img_size / 8)),
+                    torchvision.transforms.RandomHorizontalFlip(),
+                    cifar10_normalization(),
+                    torchvision.transforms.ToTensor(),
+                ]
+            )
         test_transforms = torchvision.transforms.Compose(
             [
                 torchvision.transforms.Resize(size=(img_size, img_size)),
@@ -336,28 +347,39 @@ def get_input_transformations(cifar10_normalize_inputs: bool, img_size: int):
             ]
         )
     else:
-        train_transforms = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize(size=(img_size, img_size)),
-                torchvision.transforms.RandomCrop(img_size, padding=int(img_size / 8)),
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.RandomApply(
-                    torch.nn.ModuleList([
-                        torchvision.transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.)
-                    ]),
-                    p=0.3
-                ),
-                torchvision.transforms.RandomGrayscale(p=0.1),
-                torchvision.transforms.RandomVerticalFlip(p=0.4),
-                torchvision.transforms.RandomApply(
-                    torch.nn.ModuleList([
-                        torchvision.transforms.RandomAffine(degrees=20, translate=(0.2, 0.2), scale=(0.01, 0.2))
-                    ]),
-                    p=0.3
-                ),
-                torchvision.transforms.ToTensor(),
-            ]
-        )
+        if extra_augmentations:
+            train_transforms = torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.Resize(size=(img_size, img_size)),
+                    torchvision.transforms.RandomCrop(img_size, padding=int(img_size / 8)),
+                    torchvision.transforms.RandomHorizontalFlip(),
+                    torchvision.transforms.RandomApply(
+                        torch.nn.ModuleList([
+                            torchvision.transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.)
+                        ]),
+                        p=0.3
+                    ),
+                    torchvision.transforms.RandomGrayscale(p=0.1),
+                    torchvision.transforms.RandomVerticalFlip(p=0.4),
+                    torchvision.transforms.RandomApply(
+                        torch.nn.ModuleList([
+                            torchvision.transforms.RandomAffine(degrees=20, translate=(0.2, 0.2), scale=(0.01, 0.2))
+                        ]),
+                        p=0.3
+                    ),
+                    torchvision.transforms.ToTensor(),
+                ]
+            )
+        else:
+            train_transforms = torchvision.transforms.Compose(
+                [
+                    torchvision.transforms.Resize(size=(img_size, img_size)),
+                    torchvision.transforms.RandomCrop(img_size, padding=int(img_size / 8)),
+                    torchvision.transforms.RandomHorizontalFlip(),
+                    torchvision.transforms.ToTensor(),
+                ]
+            )
+
         test_transforms = torchvision.transforms.Compose(
             [
                 torchvision.transforms.Resize(size=(img_size, img_size)),
