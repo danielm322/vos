@@ -15,8 +15,9 @@ data_dir: ${work_dir}/MCD_evaluation_data/
 log_dir: logs_hydra/runs/${logger.mlflow.experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
 
 # Datasets
+# InD: either cifar10 or svhn
 ind_dataset: "cifar10"
-ood_dataset: "gtsrb"
+ood_dataset: "svhn"
 bdd_valid_mcd_samples: "cifar10/cifar10_valid_Conv_8000_1024_10_mcd_samples.pt"
 bdd_test_mcd_samples: "cifar10/cifar10_test_Conv_2000_1024_10_mcd_samples.pt"
 ood_mcd_samples: "cifar10/gtsrb_test_Conv_2274_1024_10_mcd_samples.pt"

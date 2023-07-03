@@ -7,12 +7,12 @@ import hydra
 import torchvision
 from omegaconf import DictConfig
 from pl_bolts.datamodules import CIFAR10DataModule
-from pl_bolts.transforms.dataset_normalizations import cifar10_normalization
+
 from pytorch_lightning import seed_everything
 from torch.utils.data import DataLoader
 # from dropblock import DropBlock2D
 from ls_ood_detect_cea.uncertainty_estimation import Hook, deeplabv3p_apply_dropout, get_dl_h_z
-from TDL_mcd_helper_fns import get_ls_mcd_samples_baselines
+from TDL_mcd_helper_fns import get_ls_mcd_samples_baselines, get_input_transformations
 from TDL_resnets import LitResnet
 seed_everything(7)
 
@@ -32,41 +32,8 @@ EXTRACT_OOD = True
 def main(cfg: DictConfig) -> None:
     assert 0 <= cfg.model.sn + cfg.model.half_sn <= 1
     img_size = cfg.model.image_size
-    if cfg.model.normalize_inputs:
-        train_transforms = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize(size=(img_size, img_size)),
-                torchvision.transforms.RandomCrop(img_size, padding=int(img_size/8)),
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.ToTensor(),
-                cifar10_normalization(),
-            ]
-        )
-    else:
-        train_transforms = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize(size=(img_size, img_size)),
-                torchvision.transforms.RandomCrop(img_size, padding=int(img_size/8)),
-                torchvision.transforms.RandomHorizontalFlip(),
-                torchvision.transforms.ToTensor(),
-            ]
-        )
-    if cfg.model.normalize_inputs:
-        test_transforms = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.ToTensor(),
-                torchvision.transforms.Resize(size=(img_size, img_size)),
-                cifar10_normalization(),
-            ]
-        )
-    else:
-        test_transforms = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.ToTensor(),
-                torchvision.transforms.Resize(size=(img_size, img_size)),
-            ]
-        )
-
+    train_transforms, test_transforms = get_input_transformations(cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
+                                                                  img_size=cfg.model.image_size)
     cifar10_dm = CIFAR10DataModule(
         data_dir=PATH_DATASETS,
         batch_size=BATCH_SIZE,
