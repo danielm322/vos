@@ -18,7 +18,6 @@ from TDL_datasets import SVHNDataModule
 
 seed_everything(7)
 
-PATH_DATASETS = "./cifar10_data"
 # BATCH_SIZE = 256 if torch.cuda.is_available() else 64
 BATCH_SIZE = 1
 NUM_WORKERS = int(os.cpu_count() / 2)
@@ -96,9 +95,10 @@ def main(cfg: DictConfig) -> None:
     # Version 16:  Dropblock after 2n conv block no fc no dropout fullSN leaky input [0, 1]
     # Version 17:  Dropblock after 1st conv block no fc no dropout fullSN leaky input avg_pool [0, 1]
     # Version 18:  Dropblock after 2n conv block no fc no dropout fullSN leaky avg_pool imsize64 input  [0, 1]
-    # Version 19:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool input  [0, 1]
-    # Version 20:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize128 input  [0, 1]
-    model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch=29-step=4710.ckpt")
+    # Version 19:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool input  [0, 1] (server)
+    # Version 20:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize128 input  [0, 1] (server)
+    # Version 21:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input  [0, 1] (server)
+    model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch={cfg.model.epochs-1}-step={157*cfg.model.epochs}.ckpt")
     model.to(device)
     # Split test set into valid and test sets
     from sklearn.model_selection import train_test_split

@@ -222,7 +222,7 @@ def get_ls_mcd_samples_baselines(model: torch.nn.Module,
                 # Update progress bar
                 pbar.update(1)
             dl_imgs_latent_mcd_samples_t = torch.cat(dl_imgs_latent_mcd_samples, dim=0)
-
+    print("MCD N_samples: ", dl_imgs_latent_mcd_samples_t.shape[1])
     return dl_imgs_latent_mcd_samples_t
 
 

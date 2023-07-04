@@ -66,7 +66,7 @@ def main(cfg: DictConfig) -> None:
                       )
 
     trainer = Trainer(
-        max_epochs=45,
+        max_epochs=cfg.model.epochs,
         accelerator="auto",
         devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
         logger=CSVLogger(save_dir="cifar10_logs/"),

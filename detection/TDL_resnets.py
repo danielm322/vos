@@ -423,7 +423,8 @@ class LitResnet(LightningModule):
         if self.dropout:
             x = self.model.dropout(x)
         x = self.model.fc(x)
-        return F.log_softmax(x, dim=1)
+        # return F.log_softmax(x, dim=1)
+        return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch
