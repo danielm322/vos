@@ -1,12 +1,13 @@
 from argparse import ArgumentParser
-from typing import Optional, Union, Any, Callable, Tuple
+from typing import Optional, Union, Any, Callable, Tuple, List
 
 import numpy as np
 import pytorch_lightning as pl
+import torch
 from pl_bolts.datamodules.vision_datamodule import VisionDataModule
 from pl_bolts.utils import _TORCHVISION_AVAILABLE
 from pl_bolts.utils.warnings import warn_missing_pkg
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, random_split
 from PIL import Image
 
 if _TORCHVISION_AVAILABLE:
@@ -128,7 +129,7 @@ class SVHNDataModule1(VisionDataModule):
 
 class SVHNDataModule(pl.LightningDataModule):
     def __init__(self, data_dir, train_transform=None, test_transform=None, val_transform=None,
-                 batch_size=32, num_workers=0):
+                 batch_size=32, num_workers=0, val_split=0.15, seed=42):
         super().__init__()
         self.data_dir = data_dir
         self.train_transform = train_transform
@@ -136,6 +137,8 @@ class SVHNDataModule(pl.LightningDataModule):
         self.val_transform = val_transform
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.val_split = val_split
+        self.seed = seed
 
     def prepare_data(self):
         SVHN(self.data_dir, split='train', download=True)
@@ -143,15 +146,55 @@ class SVHNDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            self.train_dataset = SVHN(self.data_dir, split='train',
-                                      transform=self.train_transform)
-            self.val_dataset = SVHN(self.data_dir, split='test',
-                                    transform=self.test_transform)
+            dataset_train = SVHN(self.data_dir, split="train", transform=self.train_transform)
+            dataset_val = SVHN(self.data_dir, split="train", transform=self.val_transform)
+
+            # Split
+            self.dataset_train = self._split_dataset(dataset_train)
+            self.dataset_val = self._split_dataset(dataset_val, train=False)
+
+            # self.train_dataset = SVHN(self.data_dir, split='train',
+            #                           transform=self.train_transform)
+            # self.val_dataset = SVHN(self.data_dir, split='test',
+            #                         transform=self.test_transform)
+        if stage == "test" or stage is None:
+            test_transforms = self.default_transforms() if self.test_transform is None else self.test_transform
+            self.dataset_test = SVHN(
+                self.data_dir, split='test', transform=test_transforms
+            )
+
+    def default_transforms(self) -> Callable:
+        cf10_transforms = transform_lib.Compose([transform_lib.ToTensor()])
+        return cf10_transforms
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size,
+        return DataLoader(self.dataset_train, batch_size=self.batch_size,
                           shuffle=True, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size,
+        return DataLoader(self.dataset_val, batch_size=self.batch_size,
                           num_workers=self.num_workers)
+
+    def _split_dataset(self, dataset: Dataset, train: bool = True) -> Dataset:
+        """Splits the dataset into train and validation set."""
+        len_dataset = len(dataset)
+        splits = self._get_splits(len_dataset)
+        dataset_train, dataset_val = random_split(dataset, splits, generator=torch.Generator().manual_seed(self.seed))
+
+        if train:
+            return dataset_train
+        return dataset_val
+
+    def _get_splits(self, len_dataset: int) -> List[int]:
+        """Computes split lengths for train and validation set."""
+        if isinstance(self.val_split, int):
+            train_len = len_dataset - self.val_split
+            splits = [train_len, self.val_split]
+        elif isinstance(self.val_split, float):
+            val_len = int(self.val_split * len_dataset)
+            train_len = len_dataset - val_len
+            splits = [train_len, val_len]
+        else:
+            raise ValueError(f"Unsupported type {type(self.val_split)}")
+
+        return splits

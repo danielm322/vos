@@ -62,7 +62,8 @@ def main(cfg: DictConfig) -> None:
                       dropblock_size=cfg.model.dropblock_size,
                       dropout_prob=cfg.model.dropout_prob,
                       avg_pool=cfg.model.avg_pool,
-                      dropblock_location=cfg.model.dropblock_location
+                      dropblock_location=cfg.model.dropblock_location,
+                      loss_type=cfg.model.loss_type
                       )
 
     trainer = Trainer(

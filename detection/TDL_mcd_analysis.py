@@ -128,7 +128,7 @@ def main(cfg: DictConfig) -> None:
         mlflow_run_dataset = "gtsrb"
     else:
         mlflow_run_dataset = "svhn"
-    mlflow_run_name = f"{mlflow_run_dataset}_{cfg.layer_type}_{cfg.n_mcd_runs}_mcd_{cfg.use_n_proposals}_props"
+    mlflow_run_name = f"{mlflow_run_dataset}_{cfg.layer_type}_{cfg.n_mcd_runs}_mcd_{cfg.use_n_proposals}"
 
     ##########################################################################
     # Start the evaluation run

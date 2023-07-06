@@ -16,11 +16,11 @@ log_dir: logs_hydra/runs/${logger.mlflow.experiment_name}/${now:%Y-%m-%d_%H-%M-%
 
 # Datasets
 # InD: either cifar10 or svhn
-ind_dataset: "cifar10"
-ood_dataset: "svhn"
-bdd_valid_mcd_samples: "cifar10/cifar10_valid_Conv_8000_1024_10_mcd_samples.pt"
-bdd_test_mcd_samples: "cifar10/cifar10_test_Conv_2000_1024_10_mcd_samples.pt"
-ood_mcd_samples: "cifar10/gtsrb_test_Conv_2274_1024_10_mcd_samples.pt"
+ind_dataset: "svhn"
+ood_dataset: "cifar10"
+bdd_valid_mcd_samples: ${ind_dataset}/${ind_dataset}_valid_Conv_8000_1024_10_mcd_samples.pt
+bdd_test_mcd_samples: ${ind_dataset}/${ind_dataset}_test_Conv_2000_1024_10_mcd_samples.pt
+ood_mcd_samples: ${ind_dataset}/${ood_dataset}_test_Conv_2274_1024_10_mcd_samples.pt"
 # Precomputed entropies
 bdd_entropy_valid: "cifar10/cifar10_valid_Conv_8000_1024_10_mcd_h_z_samples.npy"
 bdd_entropy_test: "cifar10/cifar10_test_Conv_2000_1024_10_mcd_h_z_samples.npy"
@@ -43,8 +43,8 @@ normalize_kde_prediction: False
 seed: 42
 layer_type: "Conv"
 # Reduction method for the hooked MCD samples: either 'mean' or 'avgpool'
-reduction_method: "avgpool"
-model_version: 17
+reduction_method: "mean"
+model_version: 25
 parallel_entropy_calculation: True
 extra_data_augmentations: True
 

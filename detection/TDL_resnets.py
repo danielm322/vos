@@ -214,8 +214,8 @@ class ResNet(nn.Module):
         # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
         if zero_init_residual:
             for m in self.modules():
-                if isinstance(m, BasicBlockSpectralNormalisation) and m.bn3.weight is not None:
-                    nn.init.constant_(m.bn3.weight, 0)  # type: ignore[arg-type]
+                if isinstance(m, BasicBlockSpectralNormalisation) and m.bn2.weight is not None:
+                    nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
                 elif isinstance(m, BasicBlock) and m.bn2.weight is not None:
                     nn.init.constant_(m.bn2.weight, 0)  # type: ignore[arg-type]
 
@@ -251,21 +251,21 @@ class ResNet(nn.Module):
         )
         self.inplanes = planes * block.expansion
 
-        if stride != 1 or self.inplanes != planes * block.expansion:
-            if self.avg_pool:
-                downsample = nn.Sequential(AvgPoolShortCut(stride, block.expansion * planes, self.inplanes))
-            else:
-                downsample = nn.Sequential(
-                    conv1x1(self.inplanes, planes * block.expansion, stride),
-                    norm_layer(planes * block.expansion),
-                )
+        # if stride != 1 or self.inplanes != planes * block.expansion:
+        #     if self.avg_pool:
+        #         downsample = nn.Sequential(AvgPoolShortCut(stride, block.expansion * planes, self.inplanes))
+        #     else:
+        #         downsample = nn.Sequential(
+        #             conv1x1(self.inplanes, planes * block.expansion, stride),
+        #             norm_layer(planes * block.expansion),
+        #         )
         for _ in range(1, blocks):
             layers.append(
                 block(
                     self.inplanes,
                     planes,
-                    stride=stride,
-                    downsample=downsample,
+                    # stride=stride,
+                    # downsample=downsample,
                     groups=self.groups,
                     base_width=self.base_width,
                     dilation=self.dilation,
@@ -320,7 +320,7 @@ def create_model(spectral_normalization: bool = False,
                  half_sn: bool = False,
                  activation: str = "relu",
                  avg_pool: bool = False,
-                 num_classes: int = 1000):
+                 num_classes: int = 1000) -> ResNet:
     if spectral_normalization:
         model = _resnet(
             block=BasicBlockSpectralNormalisation,
@@ -369,9 +369,13 @@ class LitResnet(LightningModule):
                  dropblock_size: Optional[int] = 3,
                  dropblock_location: Optional[int] = 2,
                  dropout_prob: Optional[float] = 0.5,
-                 avg_pool: Optional[bool] = False):
+                 avg_pool: Optional[bool] = False,
+                 loss_type: str = "nll",
+                 optimizer_type: str = "sgd"):
         super().__init__()
         assert dropblock_location in (1, 2, 3)
+        assert loss_type in ("nll", "ce")
+        assert optimizer_type in ("sgd", "adam")
         self.save_hyperparameters()
         self.model = create_model(spectral_normalization=spectral_normalization,
                                   half_sn=half_sn,
@@ -383,6 +387,8 @@ class LitResnet(LightningModule):
         self.dropout = dropout
         self.dropblock = dropblock
         self.dropblock_location = dropblock_location
+        self.loss_type = loss_type
+        self.optimizer_type = optimizer_type
         if self.dropblock:
             self.model.dropblock_layer = DropBlock2D(drop_prob=dropblock_prob, block_size=dropblock_size)
         if self.fifth_conv_layer:
@@ -423,20 +429,28 @@ class LitResnet(LightningModule):
         if self.dropout:
             x = self.model.dropout(x)
         x = self.model.fc(x)
-        # return F.log_softmax(x, dim=1)
-        return x
+        if self.loss_type == "nll":
+            return F.log_softmax(x, dim=1)
+        else:
+            return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
-        loss = F.nll_loss(logits, y)
+        if self.loss_type == "nll":
+            loss = F.nll_loss(logits, y)
+        else:
+            loss = F.cross_entropy(logits, y)
         self.log("train_loss", loss)
         return loss
 
     def evaluate(self, batch, stage=None):
         x, y = batch
         logits = self(x)
-        loss = F.nll_loss(logits, y)
+        if self.loss_type == "nll":
+            loss = F.nll_loss(logits, y)
+        else:
+            loss = F.cross_entropy(logits, y)
         preds = torch.argmax(logits, dim=1)
         acc = accuracy(preds, y)
 
@@ -451,13 +465,20 @@ class LitResnet(LightningModule):
         self.evaluate(batch, "test")
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(
-            self.parameters(),
-            lr=self.hparams.lr,
-            momentum=0.9,
-            weight_decay=5e-4,
-        )
-        steps_per_epoch = 45000 // BATCH_SIZE
+        if self.optimizer_type == "sgd":
+            optimizer = torch.optim.SGD(
+                self.parameters(),
+                lr=self.hparams.lr,
+                momentum=0.9,
+                weight_decay=5e-4,
+            )
+        else:
+            optimizer = torch.optim.Adam(
+                self.parameters(),
+                lr=self.hparams.lr,
+                weight_decay=5e-4
+            )
+        steps_per_epoch = 74000 // BATCH_SIZE
         scheduler_dict = {
             "scheduler": OneCycleLR(
                 optimizer,

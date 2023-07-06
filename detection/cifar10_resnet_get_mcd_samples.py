@@ -12,7 +12,7 @@ from pytorch_lightning import seed_everything
 from torch.utils.data import DataLoader
 # from dropblock import DropBlock2D
 from ls_ood_detect_cea.uncertainty_estimation import Hook, deeplabv3p_apply_dropout, get_dl_h_z
-from TDL_mcd_helper_fns import get_ls_mcd_samples_baselines, get_input_transformations
+from TDL_mcd_helper_fns import MCDSamplesExtractor, get_input_transformations
 from TDL_resnets import LitResnet
 from TDL_datasets import SVHNDataModule
 
@@ -22,7 +22,6 @@ seed_everything(7)
 BATCH_SIZE = 1
 NUM_WORKERS = int(os.cpu_count() / 2)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-SAVE_FOLDER = "./MCD_evaluation_data/cifar10/"
 # Extract InD samples
 EXTRACT_IND = True
 # Extract OoD samples
@@ -32,7 +31,10 @@ EXTRACT_OOD = True
 @hydra.main(version_base=None, config_path="configs/MCD_evaluation", config_name="config.yaml")
 def main(cfg: DictConfig) -> None:
     assert 0 <= cfg.model.sn + cfg.model.half_sn <= 1
-    img_size = cfg.model.image_size
+    assert cfg.ind_dataset in ("svhn", "cifar10")
+    assert cfg.ood_dataset != cfg.ind_dataset
+    assert cfg.ood_dataset in ("svhn", "cifar10", "gtsrb")
+    SAVE_FOLDER = f"./MCD_evaluation_data/{cfg.ind_dataset}/"
     train_transforms, test_transforms = get_input_transformations(
         cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
         img_size=cfg.model.image_size,
@@ -58,6 +60,7 @@ def main(cfg: DictConfig) -> None:
             num_workers=NUM_WORKERS,
             train_transform=train_transforms,
             test_transform=test_transforms,
+            val_transform=test_transforms,
         )
     # Load test set
     ind_dm.setup(stage="test")
@@ -75,7 +78,8 @@ def main(cfg: DictConfig) -> None:
                       dropblock_size=cfg.model.dropblock_size,
                       dropout_prob=cfg.model.dropout_prob,
                       avg_pool=cfg.model.avg_pool,
-                      dropblock_location=cfg.model.dropblock_location
+                      dropblock_location=cfg.model.dropblock_location,
+                      loss_type=cfg.model.loss_type
                       )
     # Version 0: Plain Resnet, input [-1, 1]
     # Version 1:  + layer5 (Conv2d, Relu Dropblock), input [-1, 1]
@@ -97,8 +101,15 @@ def main(cfg: DictConfig) -> None:
     # Version 18:  Dropblock after 2n conv block no fc no dropout fullSN leaky avg_pool imsize64 input  [0, 1]
     # Version 19:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool input  [0, 1] (server)
     # Version 20:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize128 input  [0, 1] (server)
-    # Version 21:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input  [0, 1] (server)
-    model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch={cfg.model.epochs-1}-step={157*cfg.model.epochs}.ckpt")
+    # Version 21:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input [0, 1] (server)
+    # Version 22:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input crossentropy [0, 1] (server)
+    # Version 23:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input crossentropy original block (no double downsample) [0, 1] (server)
+    # Version 24:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input nll original block (no double downsample) [0, 1] (server)
+    if cfg.ind_dataset == "cifar10":
+        model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch={cfg.model.epochs-1}-step={157*cfg.model.epochs}.ckpt")
+    else:
+        model.load_from_checkpoint(
+            f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch={cfg.model.epochs - 1}-step={287 * cfg.model.epochs}.ckpt")
     model.to(device)
     # Split test set into valid and test sets
     from sklearn.model_selection import train_test_split
@@ -118,7 +129,7 @@ def main(cfg: DictConfig) -> None:
         )
         test_size = 0.18
     # Load SVHN
-    else:
+    elif cfg.ood_dataset == "svhn":
         ood_test_data = torchvision.datasets.SVHN(
             './svhn_data/',
             split="test",
@@ -126,6 +137,15 @@ def main(cfg: DictConfig) -> None:
             transform=test_transforms
         )
         test_size = 0.08
+    # Load Cifar10
+    else:
+        ood_test_data = torchvision.datasets.CIFAR10(
+            "./cifar10_data",
+            train=False,
+            download=True,
+            transform=test_transforms,
+        )
+        test_size = 0.2
     valid_set_ood, test_set_ood = train_test_split(ood_test_data, test_size=test_size, random_state=42)
     # MNIST test set loader
     ood_test_loader = DataLoader(test_set_ood, batch_size=1, shuffle=True)
@@ -142,62 +162,75 @@ def main(cfg: DictConfig) -> None:
     # Perform MCD inference and save samples
     ###################################################################################################
     # Get Monte-Carlo samples
+    mcd_extractor = MCDSamplesExtractor(
+        model=model,
+        mcd_nro_samples=cfg.precomputed_mcd_runs,
+        hook_dropout_layer=hooked_dropout_layer,
+        layer_type=cfg.layer_type,
+        device=device,
+        architecture="resnet",
+        location=cfg.model.dropblock_location,
+        reduction_method=cfg.reduction_method,
+        input_size=cfg.model.image_size,
+        parallel_run=False
+    )
     if EXTRACT_IND:
-        ind_valid_mc_samples = get_ls_mcd_samples_baselines(
-                model=model,
-                data_loader=valid_data_loader,
-                mcd_nro_samples=cfg.precomputed_mcd_runs,
-                hook_dropout_layer=hooked_dropout_layer,
-                layer_type=cfg.layer_type,
-                device=device,
-                architecture="resnet",
-                location=cfg.model.dropblock_location,
-                reduction_method=cfg.reduction_method,
-                input_size=cfg.model.image_size
-            )
+        ind_valid_mc_samples = mcd_extractor.get_ls_mcd_samples_baselines(valid_data_loader)
+        # ind_valid_mc_samples = get_ls_mcd_samples_baselines(
+        #         model=model,
+        #         data_loader=valid_data_loader,
+        #         mcd_nro_samples=cfg.precomputed_mcd_runs,
+        #         hook_dropout_layer=hooked_dropout_layer,
+        #         layer_type=cfg.layer_type,
+        #         device=device,
+        #         architecture="resnet",
+        #         location=cfg.model.dropblock_location,
+        #         reduction_method=cfg.reduction_method,
+        #         input_size=cfg.model.image_size
+        #     )
 
         num_images_to_save = int(
             ind_valid_mc_samples.shape[0] / cfg.precomputed_mcd_runs
         )
         torch.save(
             ind_valid_mc_samples,
-            f"./{SAVE_FOLDER}/cifar10_valid_{cfg.layer_type}_{num_images_to_save}_{ind_valid_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
+            f"./{SAVE_FOLDER}/{cfg.ind_dataset}_valid_{cfg.layer_type}_{num_images_to_save}_{ind_valid_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
         del valid_data_loader
-        ind_test_mc_samples = get_ls_mcd_samples_baselines(
-                model=model,
-                data_loader=test_data_loader,
-                mcd_nro_samples=cfg.precomputed_mcd_runs,
-                hook_dropout_layer=hooked_dropout_layer,
-                layer_type=cfg.layer_type,
-                device=device,
-                architecture="resnet",
-                location=cfg.model.dropblock_location,
-                reduction_method=cfg.reduction_method,
-                input_size=cfg.model.image_size
-            )
+        ind_test_mc_samples = mcd_extractor.get_ls_mcd_samples_baselines(test_data_loader)
+            #     model=model,
+            #     data_loader=test_data_loader,
+            #     mcd_nro_samples=cfg.precomputed_mcd_runs,
+            #     hook_dropout_layer=hooked_dropout_layer,
+            #     layer_type=cfg.layer_type,
+            #     device=device,
+            #     architecture="resnet",
+            #     location=cfg.model.dropblock_location,
+            #     reduction_method=cfg.reduction_method,
+            #     input_size=cfg.model.image_size
+            # )
 
         num_images_to_save = int(
             ind_test_mc_samples.shape[0] / cfg.precomputed_mcd_runs
         )
         torch.save(
             ind_test_mc_samples,
-            f"./{SAVE_FOLDER}/cifar10_test_{cfg.layer_type}_{num_images_to_save}_{ind_test_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
+            f"./{SAVE_FOLDER}/{cfg.ind_dataset}_test_{cfg.layer_type}_{num_images_to_save}_{ind_test_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
         del test_data_loader
     if EXTRACT_OOD:
-        ood_test_mc_samples = get_ls_mcd_samples_baselines(
-                model=model,
-                data_loader=ood_test_loader,
-                mcd_nro_samples=cfg.precomputed_mcd_runs,
-                hook_dropout_layer=hooked_dropout_layer,
-                layer_type=cfg.layer_type,
-                device=device,
-                architecture="resnet",
-                location=cfg.model.dropblock_location,
-                reduction_method=cfg.reduction_method,
-                input_size=cfg.model.image_size
-            )
+        ood_test_mc_samples = mcd_extractor.get_ls_mcd_samples_baselines(ood_test_loader)
+            #     model=model,
+            #     data_loader=ood_test_loader,
+            #     mcd_nro_samples=cfg.precomputed_mcd_runs,
+            #     hook_dropout_layer=hooked_dropout_layer,
+            #     layer_type=cfg.layer_type,
+            #     device=device,
+            #     architecture="resnet",
+            #     location=cfg.model.dropblock_location,
+            #     reduction_method=cfg.reduction_method,
+            #     input_size=cfg.model.image_size
+            # )
 
         num_images_to_save = int(
             ood_test_mc_samples.shape[0] / cfg.precomputed_mcd_runs
@@ -219,7 +252,7 @@ def main(cfg: DictConfig) -> None:
         )
         # Save entropy calculations
         np.save(
-            f"./{SAVE_FOLDER}/cifar10_valid_{cfg.layer_type}_{ind_valid_h_z_np.shape[0]}_{ind_valid_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
+            f"./{SAVE_FOLDER}/{cfg.ind_dataset}_valid_{cfg.layer_type}_{ind_valid_h_z_np.shape[0]}_{ind_valid_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
             ind_valid_h_z_np,
         )
         del ind_valid_mc_samples
@@ -231,7 +264,7 @@ def main(cfg: DictConfig) -> None:
         )
         # Save entropy calculations
         np.save(
-            f"./{SAVE_FOLDER}/cifar10_test_{cfg.layer_type}_{ind_test_h_z_np.shape[0]}_{ind_test_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
+            f"./{SAVE_FOLDER}/{cfg.ind_dataset}_test_{cfg.layer_type}_{ind_test_h_z_np.shape[0]}_{ind_test_h_z_np.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_h_z_samples",
             ind_test_h_z_np,
         )
         del ind_test_mc_samples
