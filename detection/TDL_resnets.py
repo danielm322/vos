@@ -160,7 +160,8 @@ class ResNet(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
         half_sn: Optional[bool] = False,
         activation: Optional[str] = "relu",
-        avg_pool: Optional[bool] = False
+        avg_pool: Optional[bool] = False,
+        dropblock_location: int = 2
     ) -> None:
         super().__init__()
         _log_api_usage_once(self)
@@ -169,6 +170,7 @@ class ResNet(nn.Module):
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
         self.avg_pool = avg_pool
+        self.dropblock_location = dropblock_location
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -192,12 +194,24 @@ class ResNet(nn.Module):
             self.activation = nn.LeakyReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0], activation=activation)
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0], activation=activation)
-        if self.half_sn:
-            self.layer3 = self._make_layer(BasicBlockSpectralNormalisation, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1], activation=activation)
-            self.layer4 = self._make_layer(BasicBlockSpectralNormalisation, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2], activation=activation)
+        # Layer 2
+        if self.half_sn and self.dropblock_location == 1:
+            self.layer2 = self._make_layer(BasicBlockSpectralNormalisation, 128, layers[1], stride=2,
+                                           dilate=replace_stride_with_dilation[0], activation=activation)
         else:
-            self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1], activation=activation)
+            self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0], activation=activation)
+        # Layer 3
+        if self.half_sn and self.dropblock_location <= 2:
+            self.layer3 = self._make_layer(BasicBlockSpectralNormalisation, 256, layers[2], stride=2,
+                                           dilate=replace_stride_with_dilation[1], activation=activation)
+        else:
+            self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1],
+                                           activation=activation)
+        # Layer 4
+        if self.half_sn and self.dropblock_location <= 3:
+            self.layer4 = self._make_layer(BasicBlockSpectralNormalisation, 512, layers[3], stride=2,
+                                           dilate=replace_stride_with_dilation[2], activation=activation)
+        else:
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2], activation=activation)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, num_classes)
@@ -320,7 +334,9 @@ def create_model(spectral_normalization: bool = False,
                  half_sn: bool = False,
                  activation: str = "relu",
                  avg_pool: bool = False,
-                 num_classes: int = 1000) -> ResNet:
+                 num_classes: int = 1000,
+                 dropblock_location: int = 2,
+                 original_architecture: bool = False) -> ResNet:
     if spectral_normalization:
         model = _resnet(
             block=BasicBlockSpectralNormalisation,
@@ -329,7 +345,8 @@ def create_model(spectral_normalization: bool = False,
             progress=True,
             activation=activation,
             avg_pool=avg_pool,
-            num_classes=num_classes
+            num_classes=num_classes,
+            dropblock_location=dropblock_location
         )
     else:
         model = _resnet(
@@ -340,17 +357,26 @@ def create_model(spectral_normalization: bool = False,
             half_sn=half_sn,
             activation=activation,
             avg_pool=avg_pool,
-            num_classes=num_classes
+            num_classes=num_classes,
+            dropblock_location=dropblock_location
         )
     # else:
     #     model = torchvision.models.resnet18(pretrained=False, num_classes=10)
-    if spectral_normalization:
-        model.conv1 = nn.utils.parametrizations.spectral_norm(
-            nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
-        )
+    if original_architecture:
+        if spectral_normalization:
+            model.conv1 = nn.utils.parametrizations.spectral_norm(
+                nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            )
+        else:
+            model.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
     else:
-        model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
-    model.maxpool = nn.Identity()
+        if spectral_normalization:
+            model.conv1 = nn.utils.parametrizations.spectral_norm(
+                nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+            )
+        else:
+            model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        model.maxpool = nn.Identity()
     return model
 
 
@@ -371,7 +397,8 @@ class LitResnet(LightningModule):
                  dropout_prob: Optional[float] = 0.5,
                  avg_pool: Optional[bool] = False,
                  loss_type: str = "nll",
-                 optimizer_type: str = "sgd"):
+                 optimizer_type: str = "sgd",
+                 original_architecture: bool = False):
         super().__init__()
         assert dropblock_location in (1, 2, 3)
         assert loss_type in ("nll", "ce")
@@ -381,7 +408,9 @@ class LitResnet(LightningModule):
                                   half_sn=half_sn,
                                   activation=activation,
                                   avg_pool=avg_pool,
-                                  num_classes=num_classes)
+                                  num_classes=num_classes,
+                                  dropblock_location=dropblock_location,
+                                  original_architecture=original_architecture)
         self.fifth_conv_layer = fifth_conv_layer
         self.extra_fc_layer = extra_fc_layer
         self.dropout = dropout

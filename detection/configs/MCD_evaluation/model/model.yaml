@@ -7,12 +7,13 @@ half_sn: True
 activation: "leaky"
 cifar10_normalize_inputs: False
 dropblock_prob: 0.5
-dropblock_size: 3
+dropblock_size: 1
 dropout_prob: 0.5
 avg_pool: True
 # dropblock location at the output of the nth residual layer
-dropblock_location: 3
+dropblock_location: 2
 image_size: 32
 epochs: 30
 loss_type: "ce"
 optimizer_type: "adam"
+original_architecture: True

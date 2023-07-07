@@ -38,7 +38,7 @@ def main(cfg: DictConfig) -> None:
     train_transforms, test_transforms = get_input_transformations(
         cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
         img_size=cfg.model.image_size,
-        extra_augmentations=cfg.extra_data_augmentations
+        data_augmentations=cfg.data_augmentations
     )
     # Load InD dataset
     if cfg.ind_dataset == "cifar10":
@@ -79,7 +79,8 @@ def main(cfg: DictConfig) -> None:
                       dropout_prob=cfg.model.dropout_prob,
                       avg_pool=cfg.model.avg_pool,
                       dropblock_location=cfg.model.dropblock_location,
-                      loss_type=cfg.model.loss_type
+                      loss_type=cfg.model.loss_type,
+                      original_architecture=cfg.model.original_architecture
                       )
     # Version 0: Plain Resnet, input [-1, 1]
     # Version 1:  + layer5 (Conv2d, Relu Dropblock), input [-1, 1]
@@ -102,18 +103,26 @@ def main(cfg: DictConfig) -> None:
     # Version 19:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool input  [0, 1] (server)
     # Version 20:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize128 input  [0, 1] (server)
     # Version 21:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input [0, 1] (server)
-    # Version 22:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input crossentropy [0, 1] (server)
-    # Version 23:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input crossentropy original block (no double downsample) [0, 1] (server)
-    # Version 24:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations input nll original block (no double downsample) [0, 1] (server)
+    # Version 22:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations crossentropy [0, 1] (server)
+    # Version 23:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations crossentropy original block (no double downsample) input [0, 1] (server)
+    # Version 24:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations nll original block (no double downsample) [0, 1] (server)
+    # Version 25:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 extra agumentations nll original block (no double downsample) SVHN [0, 1] (server)
+    # Version 26:  Dropblock after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 no agumentations ce original block (no double downsample) Orig_arch [0, 1]
+    # Version 27:  Dropblock 1 after 2n conv block no fc no dropout halfSN leaky avg_pool imsize32 no agumentations ce original block (no double downsample) Orig_arch [0, 1]
     if cfg.ind_dataset == "cifar10":
         model.load_from_checkpoint(f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch={cfg.model.epochs-1}-step={157*cfg.model.epochs}.ckpt")
+    # SVHN
     else:
         model.load_from_checkpoint(
             f"./cifar10_logs/lightning_logs/version_{cfg.model_version}/checkpoints/epoch={cfg.model.epochs - 1}-step={287 * cfg.model.epochs}.ckpt")
     model.to(device)
     # Split test set into valid and test sets
     from sklearn.model_selection import train_test_split
-    valid_set, test_set = train_test_split(ind_dm.dataset_test, test_size=0.2, random_state=42)
+    valid_set, test_set = train_test_split(
+        ind_dm.dataset_test,
+        test_size=0.2 if cfg.ind_dataset == "cifar10" else 0.1,
+        random_state=42
+    )
     del ind_dm
     valid_data_loader = DataLoader(valid_set, batch_size=1)
     test_data_loader = DataLoader(test_set, batch_size=1)
@@ -172,23 +181,12 @@ def main(cfg: DictConfig) -> None:
         location=cfg.model.dropblock_location,
         reduction_method=cfg.reduction_method,
         input_size=cfg.model.image_size,
-        parallel_run=False
+        original_resnet_architecture=cfg.model.original_architecture
     )
     if EXTRACT_IND:
+        # Extract InD valid
         ind_valid_mc_samples = mcd_extractor.get_ls_mcd_samples_baselines(valid_data_loader)
-        # ind_valid_mc_samples = get_ls_mcd_samples_baselines(
-        #         model=model,
-        #         data_loader=valid_data_loader,
-        #         mcd_nro_samples=cfg.precomputed_mcd_runs,
-        #         hook_dropout_layer=hooked_dropout_layer,
-        #         layer_type=cfg.layer_type,
-        #         device=device,
-        #         architecture="resnet",
-        #         location=cfg.model.dropblock_location,
-        #         reduction_method=cfg.reduction_method,
-        #         input_size=cfg.model.image_size
-        #     )
-
+        # Save
         num_images_to_save = int(
             ind_valid_mc_samples.shape[0] / cfg.precomputed_mcd_runs
         )
@@ -197,19 +195,9 @@ def main(cfg: DictConfig) -> None:
             f"./{SAVE_FOLDER}/{cfg.ind_dataset}_valid_{cfg.layer_type}_{num_images_to_save}_{ind_valid_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
         del valid_data_loader
+        # Extract InD test
         ind_test_mc_samples = mcd_extractor.get_ls_mcd_samples_baselines(test_data_loader)
-            #     model=model,
-            #     data_loader=test_data_loader,
-            #     mcd_nro_samples=cfg.precomputed_mcd_runs,
-            #     hook_dropout_layer=hooked_dropout_layer,
-            #     layer_type=cfg.layer_type,
-            #     device=device,
-            #     architecture="resnet",
-            #     location=cfg.model.dropblock_location,
-            #     reduction_method=cfg.reduction_method,
-            #     input_size=cfg.model.image_size
-            # )
-
+        # Save
         num_images_to_save = int(
             ind_test_mc_samples.shape[0] / cfg.precomputed_mcd_runs
         )
@@ -219,32 +207,22 @@ def main(cfg: DictConfig) -> None:
         )
         del test_data_loader
     if EXTRACT_OOD:
+        # Extract OoD test
         ood_test_mc_samples = mcd_extractor.get_ls_mcd_samples_baselines(ood_test_loader)
-            #     model=model,
-            #     data_loader=ood_test_loader,
-            #     mcd_nro_samples=cfg.precomputed_mcd_runs,
-            #     hook_dropout_layer=hooked_dropout_layer,
-            #     layer_type=cfg.layer_type,
-            #     device=device,
-            #     architecture="resnet",
-            #     location=cfg.model.dropblock_location,
-            #     reduction_method=cfg.reduction_method,
-            #     input_size=cfg.model.image_size
-            # )
-
+        # Save
         num_images_to_save = int(
             ood_test_mc_samples.shape[0] / cfg.precomputed_mcd_runs
         )
         torch.save(
             ood_test_mc_samples,
-            f"./{SAVE_FOLDER}/{cfg.ood_dataset}_test_{cfg.layer_type}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
+            f"./{SAVE_FOLDER}/{cfg.ood_dataset}_ood_test_{cfg.layer_type}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.precomputed_mcd_runs}_mcd_samples.pt",
         )
         del ood_test_loader
     ########################################################################################
     # Calculate and save entropy
     ########################################################################################
     if EXTRACT_IND:
-        # Calculate entropy for cifar10 valid set
+        # Calculate entropy for InD valid set
         _, ind_valid_h_z_np = get_dl_h_z(
             ind_valid_mc_samples,
             mcd_samples_nro=cfg.precomputed_mcd_runs,
@@ -256,7 +234,7 @@ def main(cfg: DictConfig) -> None:
             ind_valid_h_z_np,
         )
         del ind_valid_mc_samples
-        # Calculate entropy bdd test set
+        # Calculate entropy InD test set
         _, ind_test_h_z_np = get_dl_h_z(
             ind_test_mc_samples,
             mcd_samples_nro=cfg.precomputed_mcd_runs,

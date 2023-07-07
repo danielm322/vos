@@ -16,6 +16,9 @@ import warnings
 # Filter the append warning from pandas
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# Upload analysis to the TDL server
+UPLOAD_TO_SERVER = True
+
 
 @hydra.main(version_base=None, config_path="configs/MCD_evaluation", config_name="config.yaml")
 def main(cfg: DictConfig) -> None:
@@ -39,7 +42,7 @@ def main(cfg: DictConfig) -> None:
     assert cfg.ood_dataset in cfg.ood_mcd_samples and cfg.ood_dataset in cfg.ood_entropy_test, "OoO Dataset name and preloaded files must coincide"
     assert cfg.layer_type in cfg.ood_mcd_samples and cfg.layer_type in cfg.ood_entropy_test, "Location of samples must coincide with filename"
     assert "h_z" in cfg.ood_entropy_test and "h_z" not in cfg.ood_mcd_samples
-    assert cfg.ood_dataset in ('coco', 'openimages', "gtsrb", "svhn"), "OoD dataset must be either COCO, Open Images svhn or gtsrb"
+    assert cfg.ood_dataset in ('coco', 'openimages', "gtsrb", "svhn", "cifar10")
     bdd_valid_mc_samples = torch.load(f=op_join(cfg.data_dir, cfg.bdd_valid_mcd_samples),
                                       map_location=device)
     bdd_test_mc_samples = torch.load(f=op_join(cfg.data_dir, cfg.bdd_test_mcd_samples),
@@ -110,12 +113,12 @@ def main(cfg: DictConfig) -> None:
     # Setup MLFlow for experiment tracking
     # MlFlow configuration
     experiment_name = cfg.logger.mlflow.experiment_name
-    mlflow.set_tracking_uri("http://10.8.33.50:5050")
+    if UPLOAD_TO_SERVER:
+        mlflow.set_tracking_uri("http://10.8.33.50:5050")
     existing_exp = mlflow.get_experiment_by_name(experiment_name)
     if not existing_exp:
         mlflow.create_experiment(
             name=experiment_name,
-            #tags=cfg.logger.mlflow.tags,
         )
     experiment = mlflow.set_experiment(experiment_name=experiment_name)
     # mlflow.set_tracking_uri(cfg.logger.mlflow.tracking_uri)
@@ -126,8 +129,10 @@ def main(cfg: DictConfig) -> None:
         mlflow_run_dataset = "oi"
     elif cfg.ood_dataset == "gtsrb":
         mlflow_run_dataset = "gtsrb"
-    else:
+    elif cfg.ood_dataset == "svhn":
         mlflow_run_dataset = "svhn"
+    else:
+        mlflow_run_dataset = "cifar10"
     mlflow_run_name = f"{mlflow_run_dataset}_{cfg.layer_type}_{cfg.n_mcd_runs}_mcd_{cfg.use_n_proposals}"
 
     ##########################################################################

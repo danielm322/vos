@@ -146,22 +146,19 @@ class SVHNDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         if stage == 'fit' or stage is None:
-            dataset_train = SVHN(self.data_dir, split="train", transform=self.train_transform)
-            dataset_val = SVHN(self.data_dir, split="train", transform=self.val_transform)
+            self.dataset_train = SVHN(self.data_dir, split="train", transform=self.train_transform)
+            dataset_val = SVHN(self.data_dir, split="test", transform=self.val_transform)
 
             # Split
-            self.dataset_train = self._split_dataset(dataset_train)
+            # self.dataset_train = self._split_dataset(dataset_train)
+            self.dataset_test = self._split_dataset(dataset_val)
             self.dataset_val = self._split_dataset(dataset_val, train=False)
 
-            # self.train_dataset = SVHN(self.data_dir, split='train',
-            #                           transform=self.train_transform)
-            # self.val_dataset = SVHN(self.data_dir, split='test',
-            #                         transform=self.test_transform)
         if stage == "test" or stage is None:
             test_transforms = self.default_transforms() if self.test_transform is None else self.test_transform
-            self.dataset_test = SVHN(
-                self.data_dir, split='test', transform=test_transforms
-            )
+            dataset_val = SVHN(self.data_dir, split="test", transform=self.test_transform)
+            self.dataset_test = self._split_dataset(dataset_val)
+            self.dataset_val = self._split_dataset(dataset_val, train=False)
 
     def default_transforms(self) -> Callable:
         cf10_transforms = transform_lib.Compose([transform_lib.ToTensor()])
@@ -173,6 +170,10 @@ class SVHNDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.dataset_val, batch_size=self.batch_size,
+                          num_workers=self.num_workers)
+
+    def test_dataloader(self):
+        return DataLoader(self.dataset_test, batch_size=self.batch_size,
                           num_workers=self.num_workers)
 
     def _split_dataset(self, dataset: Dataset, train: bool = True) -> Dataset:

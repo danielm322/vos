@@ -23,10 +23,11 @@ NUM_WORKERS = int(os.cpu_count() / 2)
 def main(cfg: DictConfig) -> None:
     assert 0 <= cfg.model.sn + cfg.model.half_sn <= 1
     assert cfg.ind_dataset in ("cifar10", "svhn")
+    assert cfg.data_augmentations in ("none", "basic", "extra")
     train_transforms, test_transforms = get_input_transformations(
         cifar10_normalize_inputs=cfg.model.cifar10_normalize_inputs,
         img_size=cfg.model.image_size,
-        extra_augmentations=cfg.extra_data_augmentations
+        data_augmentations=cfg.data_augmentations
     )
     if cfg.ind_dataset == "cifar10":
         PATH_DATASETS = "./cifar10_data"
@@ -63,7 +64,8 @@ def main(cfg: DictConfig) -> None:
                       dropout_prob=cfg.model.dropout_prob,
                       avg_pool=cfg.model.avg_pool,
                       dropblock_location=cfg.model.dropblock_location,
-                      loss_type=cfg.model.loss_type
+                      loss_type=cfg.model.loss_type,
+                      original_architecture=cfg.model.original_architecture
                       )
 
     trainer = Trainer(
