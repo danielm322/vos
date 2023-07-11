@@ -18,21 +18,21 @@ log_dir: logs_hydra/runs/${logger.mlflow.experiment_name}/${now:%Y-%m-%d_%H-%M-%
 # InD: either cifar10 or svhn
 ind_dataset: "cifar10"
 ood_dataset: "svhn"
-bdd_valid_mcd_samples: ${ind_dataset}/${ind_dataset}_valid_Conv_8000_128_10_mcd_samples.pt
-bdd_test_mcd_samples: ${ind_dataset}/${ind_dataset}_test_Conv_2000_128_10_mcd_samples.pt
-ood_mcd_samples: ${ind_dataset}/${ood_dataset}_ood_test_Conv_2083_128_10_mcd_samples.pt
-# Precomputed entropies
-bdd_entropy_valid: ${ind_dataset}/${ind_dataset}_valid_Conv_8000_128_10_mcd_h_z_samples.npy
-bdd_entropy_test: ${ind_dataset}/${ind_dataset}_test_Conv_2000_128_10_mcd_h_z_samples.npy
-ood_entropy_test: ${ind_dataset}/${ood_dataset}_ood_test_Conv_2083_128_10_mcd_h_z_samples.npy
 # Eval configuration
 precomputed_mcd_runs: 20
+max_n_proposals: 512
+bdd_valid_mcd_samples: ${ind_dataset}/${ind_dataset}_valid_Conv_8000_${max_n_proposals}_${precomputed_mcd_runs}_mcd_samples.pt
+bdd_test_mcd_samples: ${ind_dataset}/${ind_dataset}_test_Conv_2000_${max_n_proposals}_${precomputed_mcd_runs}_mcd_samples.pt
+ood_mcd_samples: ${ind_dataset}/${ood_dataset}_ood_test_Conv_2083_${max_n_proposals}_${precomputed_mcd_runs}_mcd_samples.pt
+# Precomputed entropies
+bdd_entropy_valid: ${ind_dataset}/${ind_dataset}_valid_Conv_8000_${max_n_proposals}_${precomputed_mcd_runs}_mcd_h_z_samples.npy
+bdd_entropy_test: ${ind_dataset}/${ind_dataset}_test_Conv_2000_${max_n_proposals}_${precomputed_mcd_runs}_mcd_h_z_samples.npy
+ood_entropy_test: ${ind_dataset}/${ood_dataset}_ood_test_Conv_2083_${max_n_proposals}_${precomputed_mcd_runs}_mcd_h_z_samples.npy
 # Number of Monte Carlo Dropout runs to use.
 n_mcd_runs: 20
 # This parameter controls the raw number of proposals from RPN to be used.
 # If it is <1000, a random sampler will take that number of samples to continue with the rest of the algorithm
-use_n_proposals: 128
-max_n_proposals: 128
+use_n_proposals: 512
 #n_pca_components: [1, 2, 3, 4, 6, 8, 10, 12]
 n_pca_components: [1, 2, 3, 4, 6, 10, 14, 16, 18, 20, 24]
 #n_pca_components: [8, 20, 28, 36, 40, 46, 52, 60, 68]
@@ -43,7 +43,7 @@ normalize_kde_prediction: False
 seed: 42
 layer_type: "Conv"
 # Reduction method for the hooked MCD samples: either 'mean' or 'avgpool'
-reduction_method: "fullmean"
+reduction_method: "mean"
 model_version: 27
 parallel_entropy_calculation: True
 # Data augmentations: 'none', 'basic' 'extra'

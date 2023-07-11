@@ -65,7 +65,7 @@ def main(cfg: DictConfig) -> None:
     # Load test set
     ind_dm.setup(stage="test")
 
-    model = LitResnet(lr=0.05,
+    model = LitResnet(lr=cfg.model.learning_rate,
                       num_classes=10,
                       spectral_normalization=cfg.model.sn,
                       fifth_conv_layer=cfg.model.fifth_conv_layer,

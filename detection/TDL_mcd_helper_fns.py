@@ -107,8 +107,6 @@ class MCDSamplesExtractor:
             THIS CLASS SHOULD BE ADDED INTO THE LS OOD DETECTION LIBRARY
         :param model: Torch model
         :type model: torch.nn.Module
-        :param data_loader: Input samples (torch) DataLoader
-        :type data_loader: DataLoader
         :param mcd_nro_samples: Number of Monte-Carlo Samples
         :type mcd_nro_samples: int
         :param hook_dropout_layer: Hook at the Dropout Layer from the Neural Network Module
@@ -240,17 +238,38 @@ class MCDSamplesExtractor:
                             latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=2, padding=2)
                         latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
                     elif self.location == 3:
-                        assert latent_mcd_sample.shape == torch.Size([1, 256, 8, 8])
-                        if self.reduction_method == "mean":
-                            latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
-                            latent_mcd_sample = latent_mcd_sample.reshape(1, 256, 4, -1)
-                            latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
-                            latent_mcd_sample = torch.squeeze(latent_mcd_sample)
-                        # Avg pool
+                        if self.input_size == 32:
+                            if self.original_resnet_architecture:
+                                assert latent_mcd_sample.shape == torch.Size([1, 256, 2, 2])
+                                if self.reduction_method == "mean":
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                    latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                elif self.reduction_method == "fullmean":
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=2, keepdim=True)
+                                    latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                # Avg pool
+                                else:
+                                    raise NotImplementedError
+                            # Modified Lightning arch
+                            else:
+                                assert latent_mcd_sample.shape == torch.Size([1, 256, 8, 8])
+                                if self.reduction_method == "mean":
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                    latent_mcd_sample = latent_mcd_sample.reshape(1, 256, 4, -1)
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                    latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                elif self.reduction_method == "fullmean":
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=3, keepdim=True)
+                                    latent_mcd_sample = torch.mean(latent_mcd_sample, dim=2, keepdim=True)
+                                    latent_mcd_sample = torch.squeeze(latent_mcd_sample)
+                                # Avg pool
+                                else:
+                                    latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=4, padding=0)
+                                latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
+                            # latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
                         else:
-                            latent_mcd_sample = avg_pool2d(latent_mcd_sample, kernel_size=4, stride=4, padding=0)
-                        latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
-                        # latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
+                            raise NotImplementedError
                     else:
                         raise NotImplementedError
                         # Get image HxW mean:

@@ -16,8 +16,12 @@ import warnings
 # Filter the append warning from pandas
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# If both next two flags are false, mlflow will create a local tracking uri for the experiment
 # Upload analysis to the TDL server
-UPLOAD_TO_SERVER = True
+UPLOAD_FROM_LOCAL_TO_SERVER = False
+# Upload analysis ran on the TDL server
+UPLOAD_FROM_SERVER_TO_SERVER = True
+assert UPLOAD_FROM_SERVER_TO_SERVER + UPLOAD_FROM_LOCAL_TO_SERVER <= 1
 
 
 @hydra.main(version_base=None, config_path="configs/MCD_evaluation", config_name="config.yaml")
@@ -113,8 +117,10 @@ def main(cfg: DictConfig) -> None:
     # Setup MLFlow for experiment tracking
     # MlFlow configuration
     experiment_name = cfg.logger.mlflow.experiment_name
-    if UPLOAD_TO_SERVER:
+    if UPLOAD_FROM_LOCAL_TO_SERVER:
         mlflow.set_tracking_uri("http://10.8.33.50:5050")
+    elif UPLOAD_FROM_SERVER_TO_SERVER:
+        mlflow.set_tracking_uri("http://127.0.0.1:5051")
     existing_exp = mlflow.get_experiment_by_name(experiment_name)
     if not existing_exp:
         mlflow.create_experiment(

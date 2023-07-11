@@ -14,6 +14,7 @@ avg_pool: True
 dropblock_location: 2
 image_size: 32
 epochs: 30
+learning_rate: 5e-2
 loss_type: "ce"
 optimizer_type: "adam"
 original_architecture: True
