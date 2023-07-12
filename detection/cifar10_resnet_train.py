@@ -50,7 +50,8 @@ def main(cfg: DictConfig) -> None:
             test_transform=test_transforms,
         )
 
-    model = LitResnet(lr=cfg.model.learning_rate,
+    model = LitResnet(dataset_train=cfg.ind_dataset,
+                      lr=cfg.model.learning_rate,
                       num_classes=10,
                       spectral_normalization=cfg.model.sn,
                       fifth_conv_layer=cfg.model.fifth_conv_layer,

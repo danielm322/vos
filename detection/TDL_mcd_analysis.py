@@ -173,7 +173,8 @@ def main(cfg: DictConfig) -> None:
             scores_bdd_test, scores_ood = fit_evaluate_KDE(h_z_ind_valid_samples=pca_h_z_bdd_valid_samples,
                                                            h_z_ind_test_samples=pca_h_z_bdd_test_samples,
                                                            h_z_ood_samples=pca_h_z_ood_samples,
-                                                           normalize=cfg.normalize_kde_prediction)
+                                                           normalize=cfg.normalize_kde_prediction,
+                                                           transform_exp=cfg.exp_kde)
 
             results_ood, results_for_mlflow = get_hz_detector_results(detect_exp_name=f"PCA_{n_components}_components",
                                                                       ind_samples_scores=scores_bdd_test,
@@ -215,7 +216,8 @@ def main(cfg: DictConfig) -> None:
             scores_bdd_test, scores_ood = fit_evaluate_KDE(h_z_ind_valid_samples=pm_h_z_bdd_valid_samples,
                                                            h_z_ind_test_samples=pm_h_z_bdd_test_samples,
                                                            h_z_ood_samples=pm_h_z_ood_samples,
-                                                           normalize=cfg.normalize_kde_prediction)
+                                                           normalize=cfg.normalize_kde_prediction,
+                                                           transform_exp=cfg.exp_kde)
             results_ood, results_for_mlflow = get_hz_detector_results(detect_exp_name=f"PacMAP_{n_components}_components",
                                                                       ind_samples_scores=scores_bdd_test,
                                                                       ood_samples_scores=scores_ood,
