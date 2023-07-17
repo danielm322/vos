@@ -35,8 +35,8 @@ from TDL_helper_functions import (
     build_in_distribution_valid_test_dataloader_args,
     build_data_loader,
     build_ood_dataloader_args,
-    get_ls_mcd_samples_rcnn,
 )
+from TDL_mcd_helper_fns import get_ls_mcd_samples_rcnn
 
 
 def main(args) -> None:
@@ -73,6 +73,8 @@ def main(args) -> None:
         args.inference_config,
         os.path.join(inference_output_dir, os.path.split(args.inference_config)[-1]),
     )
+    # Samples save folder
+    SAVE_FOLDER = f"./MCD_evaluation_data/{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}/"
     # Assert only one layer is specified to be hooked
     assert (
         cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT
@@ -139,7 +141,7 @@ def main(args) -> None:
     )
     torch.save(
         bdd_valid_mc_samples,
-        f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        f"./{SAVE_FOLDER}/bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Get Monte-Carlo samples
     bdd_test_mc_samples = get_ls_mcd_samples_rcnn(
@@ -156,7 +158,7 @@ def main(args) -> None:
     )
     torch.save(
         bdd_test_mc_samples,
-        f"./bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        f"./{SAVE_FOLDER}/bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Get Monte-Carlo samples
     ood_test_mc_samples = get_ls_mcd_samples_rcnn(
@@ -173,7 +175,7 @@ def main(args) -> None:
     )
     torch.save(
         ood_test_mc_samples,
-        f"./ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        f"./{SAVE_FOLDER}/ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Since inference if memory-intense, we want to liberate as much memory as possible
     del predictor
@@ -187,7 +189,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./{SAVE_FOLDER}/bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         bdd_valid_h_z_np,
     )
     # Calculate entropy bdd test set
@@ -197,7 +199,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./{SAVE_FOLDER}/bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         bdd_test_h_z_np,
     )
     # Calculate entropy ood test set
@@ -207,7 +209,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./{SAVE_FOLDER}/ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         ood_h_z_np,
     )
     # Analysis of the calculated samples is performed in another script!
