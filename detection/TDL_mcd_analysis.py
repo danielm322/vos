@@ -18,13 +18,21 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # If both next two flags are false, mlflow will create a local tracking uri for the experiment
 # Upload analysis to the TDL server
-UPLOAD_FROM_LOCAL_TO_SERVER = False
+UPLOAD_FROM_LOCAL_TO_SERVER = True
 # Upload analysis ran on the TDL server
-UPLOAD_FROM_SERVER_TO_SERVER = True
+UPLOAD_FROM_SERVER_TO_SERVER = False
 assert UPLOAD_FROM_SERVER_TO_SERVER + UPLOAD_FROM_LOCAL_TO_SERVER <= 1
+# Perform analysis either on RCNN or RESNET
+RCNN = True
+RESNET = False
+assert RCNN + RESNET == 1
+if RCNN:
+    config_file = "config_rcnn.yaml"
+else:
+    config_file = "config.yaml"
 
 
-@hydra.main(version_base=None, config_path="configs/MCD_evaluation", config_name="config.yaml")
+@hydra.main(version_base=None, config_path="configs/MCD_evaluation", config_name=config_file)
 def main(cfg: DictConfig) -> None:
     """
     This function performs analysis on already calculated MCD samples in another script.

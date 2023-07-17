@@ -67,6 +67,7 @@ def main(args) -> None:
         args.inference_config,
         args.image_corruption_level,
     )
+    assert cfg.PROBABILISTIC_INFERENCE.OOD_DATASET in ("coco_ood_val_bdd", "openimages_ood_val")
 
     os.makedirs(inference_output_dir, exist_ok=True)
     copyfile(
@@ -121,6 +122,10 @@ def main(args) -> None:
     # Build Out of Distribution test data loader
     ood_data_loader_args = build_ood_dataloader_args(cfg)
     ood_test_data_loader = build_data_loader(**ood_data_loader_args)
+    if cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val_bdd":
+        ood_ds_name = "coco"
+    else:
+        ood_ds_name = "openimages"
     del ood_data_loader_args
 
     ###################################################################################################
@@ -175,7 +180,7 @@ def main(args) -> None:
     )
     torch.save(
         ood_test_mc_samples,
-        f"./{SAVE_FOLDER}/ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Since inference if memory-intense, we want to liberate as much memory as possible
     del predictor
@@ -209,7 +214,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./{SAVE_FOLDER}/ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         ood_h_z_np,
     )
     # Analysis of the calculated samples is performed in another script!

@@ -30,4 +30,4 @@ PROBABILISTIC_INFERENCE:
 MODEL:
     RPN:
         # Either "StandardRPNHead" to not use dropblock in the RPN, or "MCDRpnHead" to use dropblock on the RPN
-        HEAD_NAME: "StandardRPNHead"
+        HEAD_NAME: "MCDRpnHead"

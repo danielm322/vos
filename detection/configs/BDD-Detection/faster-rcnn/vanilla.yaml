@@ -3,8 +3,8 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
 #  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
 #  WEIGHTS: "./data/VOC-Detection/faster-rcnn/faster_rcnn_R_50_FPN_all_logistic/random_seed_0/model_final.pth"
-  #WEIGHTS: "../model_final_vanilla_resnet_bdd.pth"
-  WEIGHTS: "data/BDD-Detection/faster-rcnn/vanilla/random_seed_0/model_best_lr2e-4.pth"
+  WEIGHTS: "../model_final_vanilla_resnet_bdd.pth"
+  #WEIGHTS: "data/BDD-Detection/faster-rcnn/vanilla/random_seed_0/model_best_lr2e-4.pth"
 
 #  PROPOSAL_GENERATOR:
 #    NAME: "RPNLogistic"
@@ -33,8 +33,8 @@ SOLVER:
   VAL_METRIC: "bbox/AP50"
   VAL_METRIC_MODE: "max"
   FREEZE_BACKBONE: True
-  FREEZE_RPN: True
-  FREEZE_BOX_POOLER: True
+  FREEZE_RPN: False
+  FREEZE_BOX_POOLER: False
 DATALOADER:
     NUM_WORKERS: 8  # Depends on the available memory
 TEST:

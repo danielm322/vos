@@ -102,6 +102,9 @@ def main(args):
 
     # Eval only mode to produce mAP results
     # Build Trainer from config node. Begin Training.
+    # Random seed 0: did not freeze
+    # Random seed 1: freeze backbone, RPN
+    # Random seed 2: freeze backbone, unfreeze rest
     trainer = Trainer(cfg)
 
     if args.eval_only:
@@ -116,15 +119,12 @@ def main(args):
 
     trainer.resume_or_load(resume=args.resume)
     # MlFlow configuration
-    experiment_name = "Box Head Dropout"
+    # Either "Box Head Dropout" or "RPN Conv DB"
+    experiment_name = "RPN Conv DB"
     existing_exp = mlflow.get_experiment_by_name(experiment_name)
     if not existing_exp:
         mlflow.create_experiment(
-            name=experiment_name,
-            tags={"dropout": True,
-                  "dropout_location": "box head",
-                  'vos': False},
-        )
+            name=experiment_name)
     experiment = mlflow.set_experiment(experiment_name=experiment_name)
     mlflow.set_tracking_uri("./mlruns")
 
