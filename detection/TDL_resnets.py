@@ -382,6 +382,7 @@ def create_model(spectral_normalization: bool = False,
 
 class LitResnet(LightningModule):
     def __init__(self,
+                 dataset_train: str,
                  lr=0.05,
                  num_classes: int = 1000,
                  spectral_normalization: bool = False,
@@ -398,11 +399,12 @@ class LitResnet(LightningModule):
                  avg_pool: Optional[bool] = False,
                  loss_type: str = "nll",
                  optimizer_type: str = "sgd",
-                 original_architecture: bool = False):
+                 original_architecture: bool = False,):
         super().__init__()
         assert dropblock_location in (1, 2, 3)
         assert loss_type in ("nll", "ce")
         assert optimizer_type in ("sgd", "adam")
+        assert dataset_train in ("cifar10", "svhn")
         self.save_hyperparameters()
         self.model = create_model(spectral_normalization=spectral_normalization,
                                   half_sn=half_sn,
@@ -418,6 +420,7 @@ class LitResnet(LightningModule):
         self.dropblock_location = dropblock_location
         self.loss_type = loss_type
         self.optimizer_type = optimizer_type
+        self.dataset_train = dataset_train
         if self.dropblock:
             self.model.dropblock_layer = DropBlock2D(drop_prob=dropblock_prob, block_size=dropblock_size)
         if self.fifth_conv_layer:
@@ -507,7 +510,10 @@ class LitResnet(LightningModule):
                 lr=self.hparams.lr,
                 weight_decay=5e-4
             )
-        steps_per_epoch = 74000 // BATCH_SIZE
+        if self.dataset_train == "cifar10":
+            steps_per_epoch = 45000 // BATCH_SIZE
+        else:
+            steps_per_epoch = 74000 // BATCH_SIZE
         scheduler_dict = {
             "scheduler": OneCycleLR(
                 optimizer,

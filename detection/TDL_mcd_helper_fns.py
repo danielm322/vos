@@ -270,6 +270,7 @@ class MCDSamplesExtractor:
                             # latent_mcd_sample = latent_mcd_sample.reshape(1, 128, 4, -1)
                         else:
                             raise NotImplementedError
+                        latent_mcd_sample = latent_mcd_sample.reshape(1, -1)
                     else:
                         raise NotImplementedError
                         # Get image HxW mean:
@@ -297,27 +298,42 @@ class MCDSamplesExtractor:
 def fit_evaluate_KDE(h_z_ind_valid_samples: np.array,
                      h_z_ind_test_samples: np.array,
                      h_z_ood_samples: np.array,
-                     normalize: bool, ) -> Tuple[np.array, np.array]:
+                     normalize: bool,
+                     transform_exp: bool) -> Tuple[np.array, np.array]:
     """
     This function fits and evaluates a KDE classifier using valid and test samples from an In Distribution set,
     compared to an OoD set. It returns evaluation metrics to be logged with MLFlow
+    :param transform_exp: Transform log-prob by applying exponential
     :param normalize: Whether to normalize the kde transformation
     :param h_z_ind_valid_samples: InD valid samples to build the KDE
     :param h_z_ind_test_samples: InD test samples to evaluate the KDE
     :param h_z_ood_samples: OoD samples
     :return:
     """
-    bdd_ds_shift_detector = DetectorKDE(train_embeddings=h_z_ind_valid_samples)
+    ind_ds_shift_detector = DetectorKDE(train_embeddings=h_z_ind_valid_samples)
     if normalize:
-        scores_bdd_test = get_hz_scores(hz_detector=bdd_ds_shift_detector,
-                                        samples=h_z_ind_test_samples)
-        scores_ood = get_hz_scores(hz_detector=bdd_ds_shift_detector,
-                                   samples=h_z_ood_samples)
-    else:
-        scores_bdd_test = bdd_ds_shift_detector.density.score_samples(h_z_ind_test_samples)
-        scores_ood = bdd_ds_shift_detector.density.score_samples(h_z_ood_samples)
+        if not transform_exp:
+            scores_ind_test = get_hz_scores(hz_detector=ind_ds_shift_detector,
+                                            samples=h_z_ind_test_samples)
+            scores_ood = get_hz_scores(hz_detector=ind_ds_shift_detector,
+                                       samples=h_z_ood_samples)
+        else:
+            scores_ind_test = np.exp(ind_ds_shift_detector.density.score_samples(h_z_ind_test_samples))
+            scores_ood = np.exp(ind_ds_shift_detector.density.score_samples(h_z_ood_samples))
+            norm_ind = np.linalg.norm(scores_ind_test)
+            norm_ood = np.linalg.norm(scores_ood)
+            scores_ind_test = scores_ind_test / norm_ind
+            scores_ood = scores_ood / norm_ood
 
-    return scores_bdd_test, scores_ood
+    else:
+        if not transform_exp:
+            scores_ind_test = ind_ds_shift_detector.density.score_samples(h_z_ind_test_samples)
+            scores_ood = ind_ds_shift_detector.density.score_samples(h_z_ood_samples)
+        else:
+            scores_ind_test = np.exp(ind_ds_shift_detector.density.score_samples(h_z_ind_test_samples))
+            scores_ood = np.exp(ind_ds_shift_detector.density.score_samples(h_z_ood_samples))
+
+    return scores_ind_test, scores_ood
 
 
 def adjust_mlflow_results_name(data_dict: dict, technique_name: str) -> dict:
