@@ -39,7 +39,7 @@ printf "\n"
 # nvidia-smi
 # printf "\n"
 printf "Start training:"
-srun --kill-on-bad-exit=1 python train_net.py --dataset-dir /home/users/dmontoya/data_repos/datasets/bdd100k --num-gpus 1 --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/TDL_mcd.yaml --random-seed 2
+srun --kill-on-bad-exit=1 python train_net.py --dataset-dir /home/users/dmontoya/data_repos/datasets/bdd100k --num-gpus 1 --config-file BDD-Detection/faster-rcnn/vanilla.yaml --inference-config Inference/TDL_mcd.yaml --random-seed 3
 
 # dmesg -T
 printf "\n"
