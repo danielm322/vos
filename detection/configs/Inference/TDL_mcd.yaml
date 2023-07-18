@@ -15,14 +15,14 @@ PROBABILISTIC_INFERENCE:
         # 'backbone', to get the tensor of outputs from backbone
         # 'RPN' for the output of the RPN's objectness logits (Dropblock), or
         # 'Conv' (Convolutional for a Dropblock layer)
-        LAYER_TYPE: 'FC'
+        LAYER_TYPE: 'RPN'
         # HOOK_RELU: use the Hook on the ReLU layer after the dropout layer. If false: Hookd the dropout layer
         HOOK_RELU_AFTER_DROPOUT: False
         HOOK_DROPOUT_BEFORE_RELU: False
         HOOK_DROPBLOCK_RPN: True
         HOOK_DROPBLOCK_AFTER_BACKBONE: False
         DROPBLOCK_PROB: 0.5
-        DROPBLOCK_SIZE: 4
+        DROPBLOCK_SIZE: 1
 
     # Either 'openimages_ood_val' for openimages OoD or 'coco_ood_val_bdd'
     OOD_DATASET: "coco_ood_val_bdd"
