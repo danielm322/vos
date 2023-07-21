@@ -69,7 +69,11 @@ def main(args) -> None:
     )
     ind_dataset = args.config_file.split("-Detection")[0][-3:].lower()
     assert ind_dataset in ("bdd", "voc")
-    assert cfg.PROBABILISTIC_INFERENCE.OOD_DATASET in ("coco_ood_val_bdd", "openimages_ood_val")
+    assert cfg.PROBABILISTIC_INFERENCE.OOD_DATASET in (
+        "coco_ood_val_bdd",
+        "openimages_ood_val",
+        "coco_ood_val",
+    )
 
     os.makedirs(inference_output_dir, exist_ok=True)
     copyfile(
@@ -125,7 +129,9 @@ def main(args) -> None:
     ood_data_loader_args = build_ood_dataloader_args(cfg)
     ood_test_data_loader = build_data_loader(**ood_data_loader_args)
     if cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val_bdd":
-        ood_ds_name = "coco"
+        ood_ds_name = "coco_indbdd"
+    elif cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val":
+        ood_ds_name = "coco_indvoc"
     else:
         ood_ds_name = "openimages"
     del ood_data_loader_args

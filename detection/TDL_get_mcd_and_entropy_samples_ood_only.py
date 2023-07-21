@@ -62,8 +62,12 @@ def main(args) -> None:
         args.test_dataset,
         args.inference_config,
         args.image_corruption_level)
-    assert cfg.PROBABILISTIC_INFERENCE.OOD_DATASET in ("coco_ood_val_bdd", "openimages_ood_val")
-
+    if cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val_bdd":
+        ood_ds_name = "coco_indbdd"
+    elif cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val":
+        ood_ds_name = "coco_indvoc"
+    else:
+        ood_ds_name = "openimages"
     os.makedirs(inference_output_dir, exist_ok=True)
     copyfile(args.inference_config, os.path.join(
         inference_output_dir, os.path.split(args.inference_config)[-1]))
