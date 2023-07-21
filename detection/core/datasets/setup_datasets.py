@@ -225,6 +225,8 @@ def setup_voc_ood_dataset(dataset_dir):
 
 
 def setup_coco_ood_dataset(dataset_dir):
+    # Ugly but desperate measure to be able to load coco ood test set at the same time as bdd test set
+    dataset_dir = "../../id_voc_ood_coco"
     test_image_dir = os.path.join(dataset_dir, 'val2017')
 
     # test_json_annotations = os.path.join(
