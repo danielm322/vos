@@ -67,6 +67,8 @@ def main(args) -> None:
         args.inference_config,
         args.image_corruption_level,
     )
+    ind_dataset = args.config_file.split("-Detection")[0][-3:].lower()
+    assert ind_dataset in ("bdd", "voc")
     assert cfg.PROBABILISTIC_INFERENCE.OOD_DATASET in ("coco_ood_val_bdd", "openimages_ood_val")
 
     os.makedirs(inference_output_dir, exist_ok=True)
@@ -146,7 +148,7 @@ def main(args) -> None:
     )
     torch.save(
         bdd_valid_mc_samples,
-        f"./{SAVE_FOLDER}/bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        f"./{SAVE_FOLDER}/{ind_dataset}_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Get Monte-Carlo samples
     bdd_test_mc_samples = get_ls_mcd_samples_rcnn(
@@ -163,7 +165,7 @@ def main(args) -> None:
     )
     torch.save(
         bdd_test_mc_samples,
-        f"./{SAVE_FOLDER}/bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        f"./{SAVE_FOLDER}/{ind_dataset}_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
     )
     # Get Monte-Carlo samples
     ood_test_mc_samples = get_ls_mcd_samples_rcnn(
@@ -194,7 +196,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./{SAVE_FOLDER}/bdd_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./{SAVE_FOLDER}/{ind_dataset}_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         bdd_valid_h_z_np,
     )
     # Calculate entropy bdd test set
@@ -204,7 +206,7 @@ def main(args) -> None:
     )
     # Save entropy calculations
     np.save(
-        f"./{SAVE_FOLDER}/bdd_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+        f"./{SAVE_FOLDER}/{ind_dataset}_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
         bdd_test_h_z_np,
     )
     # Calculate entropy ood test set

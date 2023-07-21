@@ -33,7 +33,8 @@ MODEL:
         IN_FEATURES: ["p2", "p3", "p4", "p5"]
 
     ROI_BOX_HEAD:
-        NAME: "DropoutFastRCNNConvFCHead"
+        # "FastRCNNConvFCHead" or "DropoutFastRCNNConvFCHead"
+        NAME: "FastRCNNConvFCHead"
         NUM_FC: 2
         POOLER_RESOLUTION: 7
 

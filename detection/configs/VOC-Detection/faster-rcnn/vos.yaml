@@ -1,8 +1,9 @@
 _BASE_: "../../Base-RCNN-FPN.yaml"
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNNLogisticGMM"
-  WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
+  #WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
 #  WEIGHTS: "./data/VOC-Detection/faster-rcnn/faster_rcnn_R_50_FPN_all_logistic/random_seed_0/model_final.pth"
+  WEIGHTS: "../model_final_vos_resnet_voc.pth"
 
 #  PROPOSAL_GENERATOR:
 #    NAME: "RPNLogistic"

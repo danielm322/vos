@@ -102,8 +102,8 @@ def main(args):
 
     # Eval only mode to produce mAP results
     # Build Trainer from config node. Begin Training.
-    # Random seed 0: did not freeze
-    # Random seed 1: freeze backbone, RPN
+    # Random seed 0: freeze backbone, RPN
+    # Random seed 1: No fine-tuning at all (use this seed to get samples from original architecture)
     # Random seed 2: freeze backbone, unfreeze rest, dropblock_size1 slurm-147627
     # Random seed 3: freeze backbone, unfreeze rest, dropblock_size4 slurm-147664
     trainer = Trainer(cfg)

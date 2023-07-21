@@ -9,3 +9,4 @@ PROBABILISTIC_INFERENCE:
         # Enables MC_Dropout if INFERENCE_MODE supports it.
         ENABLE: False
         NUM_RUNS: 1
+        AFTER_INFERENCE: True
