@@ -77,19 +77,24 @@ def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
                     else:
                         # Aggregate the second dimension (dim 1) to keep the proposed boxes dimension
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=1)
-                    if layer_type == "FC" and latent_mcd_sample.shape[0] == 1000:
+                    if (layer_type == "FC" and latent_mcd_sample.shape[0] == 1000) or layer_type == "RPN":
                         img_mcd_samples.append(latent_mcd_sample)
                     elif layer_type == "FC" and latent_mcd_sample.shape[0] != 1000:
-                        print(f"Omitted image: {image[0]['image_id']}")
-                    elif layer_type == "RPN":
-                        img_mcd_samples.append(latent_mcd_sample)
+                        pass
                     else:
                         raise NotImplementedError
                 if layer_type == "Conv":
                     img_mcd_samples_t = torch.cat(img_mcd_samples, dim=0)
+                    dl_imgs_latent_mcd_samples.append(img_mcd_samples_t)
                 else:
-                    img_mcd_samples_t = torch.stack(img_mcd_samples, dim=0)
-                dl_imgs_latent_mcd_samples.append(img_mcd_samples_t)
+                    if (layer_type == "FC" and latent_mcd_sample.shape[0] == 1000) or layer_type == "RPN":
+                        img_mcd_samples_t = torch.stack(img_mcd_samples, dim=0)
+                        dl_imgs_latent_mcd_samples.append(img_mcd_samples_t)
+                    elif layer_type == "FC" and latent_mcd_sample.shape[0] != 1000:
+                        print(f"Omitted image: {image[0]['image_id']}")
+                    else:
+                        raise NotImplementedError
+
                 # Update progress bar
                 pbar.update(1)
             dl_imgs_latent_mcd_samples_t = torch.cat(dl_imgs_latent_mcd_samples, dim=0)
