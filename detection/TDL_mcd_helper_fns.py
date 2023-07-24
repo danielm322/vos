@@ -79,6 +79,8 @@ def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=1)
                     if layer_type == "FC" and latent_mcd_sample.shape[0] == 1000:
                         img_mcd_samples.append(latent_mcd_sample)
+                    elif layer_type == "FC" and latent_mcd_sample.shape[0] != 1000:
+                        print(f"Omitted image: {image[0]['image_id']}")
                     elif layer_type == "RPN":
                         img_mcd_samples.append(latent_mcd_sample)
                     else:
