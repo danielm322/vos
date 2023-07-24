@@ -73,11 +73,16 @@ def get_ls_mcd_samples_rcnn(model: torch.nn.Module,
                             # Remove useless dimensions:
                             latent_mcd_sample[k] = torch.squeeze(latent_mcd_sample[k])
                         latent_mcd_sample = torch.cat(list(latent_mcd_sample.values()), dim=0)
+                    # FC
                     else:
                         # Aggregate the second dimension (dim 1) to keep the proposed boxes dimension
                         latent_mcd_sample = torch.mean(latent_mcd_sample, dim=1)
-
-                    img_mcd_samples.append(latent_mcd_sample)
+                    if layer_type == "FC" and latent_mcd_sample.shape[0] == 1000:
+                        img_mcd_samples.append(latent_mcd_sample)
+                    elif layer_type == "RPN":
+                        img_mcd_samples.append(latent_mcd_sample)
+                    else:
+                        raise NotImplementedError
                 if layer_type == "Conv":
                     img_mcd_samples_t = torch.cat(img_mcd_samples, dim=0)
                 else:
