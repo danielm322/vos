@@ -1,0 +1,66 @@
+# @package _global_
+
+# default configuration
+defaults:
+    - _self_
+
+
+    # enable color logging
+    # - override hydra/hydra_logging: colorlog
+    # - override hydra/job_logging: colorlog
+
+work_dir: ${hydra:runtime.cwd}
+experiment_name: "MCD_Classif_FMNIST_MNIST"
+log_dir: logs_hydra/runs/${experiment_name}/${now:%Y-%m-%d_%H-%M-%S}
+
+# Datasets
+# InD: either cifar10 or svhn
+ind_dataset: "fashion_mnist"
+ood_dataset: "mnist"
+
+# Eval configuration
+mcd_runs: 10
+layer_type: "Conv"
+#n_pca_components: [1, 2, 3, 4, 6, 8, 10, 12]
+n_pca_components: [2, 12, 20, 24, 28, 32, 36, 44, 52]
+#n_pca_components: [1, 6, 14, 20, 24, 32, 40, 48, 56]
+#n_pca_components: [8, 20, 28, 36, 40, 46, 52, 60, 68]
+n_pacmap_neighbors: 10
+n_pacmap_components: [2, 6, 10, 12, 16, 20]
+#n_pacmap_components: [2, 12]
+reduction_method: "mean"
+normalize_kde_prediction: False
+exp_kde: False
+seed: 42
+##########################################################
+# Model parameters
+###########################################################
+dropout: True
+dropout_prob: 0.5
+dropblock_1: True
+dropblock_2: True
+dropblock_1_prob: 0.25
+dropblock_2_prob: 0.25
+dropblock_1_size: 3
+dropblock_2_size: 3
+leaky_relu: False
+spectral_normalization: False
+average_pooling: False
+learning_rate: 0.001
+num_epochs: 10
+im_size: 28
+batch_size: 100
+# either "dropblock2" or "dropblock1"
+hooked_layer: "dropblock2"
+# Data augmentations: 'none', 'basic' 'extra'
+data_augmentations: "extra"
+
+
+hydra:
+    # output paths for hydra logs
+    run:
+        dir: ${log_dir}
+
+    sweep:
+        dir: logs_hydra/multiruns/${now:%Y-%m-%d_%H-%M-%S}
+        subdir: ${hydra.job.num}

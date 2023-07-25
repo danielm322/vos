@@ -133,7 +133,8 @@ class MCDSamplesExtractor:
 
         assert layer_type in ("FC", "Conv"), "Layer type must be either 'FC' or 'Conv'"
         assert architecture in ("small", "resnet"), "Only 'small' or 'resnet' are supported"
-        assert input_size in (32, 64, 128)
+        if architecture == "resnet":
+            assert input_size in (32, 64, 128)
         if architecture == "resnet" and location in (1, 2):
             assert reduction_method in (
                 "mean", "fullmean", "avgpool"), "Only mean, fullmean and avg pool reduction method supported for resnet"
