@@ -11,7 +11,7 @@ from inference import inference_utils
 from inference.inference_core import ProbabilisticPredictor
 from modeling.modeling_utils import covariance_output_to_cholesky, clamp_log_variance
 
-from detection.inference.ash import ash_p
+from inference.ash import ash_p
 
 
 class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):

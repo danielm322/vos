@@ -9,7 +9,7 @@ import sys
 import torch
 from shutil import copyfile
 
-from detection.inference.baselines import save_energy_scores_baselines
+from inference.baselines import save_energy_scores_baselines
 
 # This is very ugly. Essential for now but should be fixed.
 sys.path.append(os.path.join(core.top_dir(), "src", "detr"))
