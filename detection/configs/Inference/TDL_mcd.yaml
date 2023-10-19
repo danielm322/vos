@@ -24,6 +24,12 @@ PROBABILISTIC_INFERENCE:
         DROPBLOCK_PROB: 0.5
         DROPBLOCK_SIZE: 1
 
+    OUTPUT_BOX_CLS: True
+    ASH_INFERENCE: False
+    ASH_PERCENTILE: 65
+    REACT_PERCENTILE: 85
+    DICE_PERCENTILE: 85
+
     # Either 'openimages_ood_val' for openimages OoD or 'coco_ood_val_bdd'
     OOD_DATASET: "coco_ood_val_bdd"
 

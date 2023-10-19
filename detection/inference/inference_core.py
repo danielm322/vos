@@ -84,13 +84,20 @@ class ProbabilisticPredictor(ABC):
                 'Invalid inference mode {}.'.format(
                     self.inference_mode))
 
+        if self.dice_react_precompute:
+            return results
         # Perform post processing on detector output.
+        if self.output_box_cls:
+            results, box_cls = results
         height = input_im[0].get("height", results.image_size[0])
         width = input_im[0].get("width", results.image_size[1])
         results = inference_utils.probabilistic_detector_postprocess(results,
                                                                      height,
                                                                      width)
-        return results
+        if self.output_box_cls:
+            return results, box_cls
+        else:
+            return results
 
     def visualize_inference(self, inputs, results, savedir, name, cfg, energy_threshold=None):
         """

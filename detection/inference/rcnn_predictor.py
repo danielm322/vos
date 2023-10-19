@@ -11,6 +11,8 @@ from inference import inference_utils
 from inference.inference_core import ProbabilisticPredictor
 from modeling.modeling_utils import covariance_output_to_cholesky, clamp_log_variance
 
+from detection.inference.ash import ash_p
+
 
 class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
     def __init__(self, cfg):
@@ -29,7 +31,21 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
         if self.mc_dropout_enabled:
             self.model.proposal_generator.eval()
         # perform mc dropout after single inference
-        self.mc_dropout_after = cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.AFTER_INFERENCE
+        try:
+            self.mc_dropout_after = cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.AFTER_INFERENCE
+        except AttributeError:
+            self.mc_dropout_after = False
+        try:
+            self.output_box_cls = cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
+        except AttributeError:
+            self.output_box_cls = False
+        try:
+            self.ash_percentile = cfg.PROBABILISTIC_INFERENCE.ASH_PERCENTILE
+        except AttributeError:
+            self.ash_percentile = None
+        self.ash_inference = False
+        self.dice_react_precompute = False
+        self.react_threshold = None
 
     def generalized_rcnn_probabilistic_inference(self,
                                                  input_im,
@@ -112,10 +128,14 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
 
             features = [features[f] for f in self.model.roi_heads.box_in_features]
             box_features = self.model.roi_heads.box_pooler(features, [x.proposal_boxes for x in proposals])
+            if self.ash_inference and self.ash_percentile is not None:
+                box_features = ash_p(box_features, percentile=self.ash_percentile)
             box_features = self.model.roi_heads.box_head(box_features)
+            if self.dice_react_precompute:
+                return box_features
+            if self.react_threshold is not None:
+                box_features = box_features.clip(max=self.react_threshold)
             predictions = self.model.roi_heads.box_predictor(box_features)
-
-
 
             box_cls = predictions[0]
             box_delta = predictions[1]
@@ -166,9 +186,12 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
             box_delta, proposal_boxes)
         boxes_covars = []
 
-
-        return boxes, boxes_covars, scores, inter_feat, filter_inds[:,
-                                                        1], box_cls[filter_inds[:, 0]], det_labels
+        if self.output_box_cls:
+            return (boxes, boxes_covars, scores, inter_feat, filter_inds[:,
+                                                        1], box_cls[filter_inds[:, 0]], det_labels), box_cls
+        else:
+            return boxes, boxes_covars, scores, inter_feat, filter_inds[:,
+                                                            1], box_cls[filter_inds[:, 0]], det_labels
 
     def post_processing_standard_nms(self, input_im):
         """
@@ -180,9 +203,15 @@ class GeneralizedRcnnPlainPredictor(ProbabilisticPredictor):
             result (instances): object instances
         """
         outputs = self.generalized_rcnn_probabilistic_inference(input_im)
-
-        return inference_utils.general_standard_nms_postprocessing(
-            input_im, outputs, self.test_nms_thresh, self.test_topk_per_image)
+        if self.dice_react_precompute:
+            return outputs
+        if self.output_box_cls:
+            outputs, box_cls = outputs
+            return inference_utils.general_standard_nms_postprocessing(
+                input_im, outputs, self.test_nms_thresh, self.test_topk_per_image), box_cls
+        else:
+            return inference_utils.general_standard_nms_postprocessing(
+                input_im, outputs, self.test_nms_thresh, self.test_topk_per_image)
 
     def post_processing_output_statistics(self, input_im):
         """
