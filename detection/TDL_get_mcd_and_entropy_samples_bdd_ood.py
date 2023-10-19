@@ -9,6 +9,8 @@ import sys
 import torch
 from shutil import copyfile
 
+from detection.inference.baselines import save_energy_scores_baselines
+
 # This is very ugly. Essential for now but should be fixed.
 sys.path.append(os.path.join(core.top_dir(), "src", "detr"))
 
@@ -28,15 +30,18 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # the second screen. Remove or change the matplotlib backend if it doesn't work well
 # import matplotlib
 # matplotlib.use('TkAgg')
-from ls_ood_detect_cea.uncertainty_estimation import Hook
+from ls_ood_detect_cea.uncertainty_estimation import Hook, RouteDICE, get_predictive_uncertainty_score
 from ls_ood_detect_cea.uncertainty_estimation import deeplabv3p_apply_dropout
 from ls_ood_detect_cea.uncertainty_estimation import get_dl_h_z
+from ls_ood_detect_cea.rcnn import get_ls_mcd_samples_rcnn, get_msp_score_rcnn, get_dice_feat_mean_react_percentile_rcnn
 from TDL_helper_functions import (
     build_in_distribution_valid_test_dataloader_args,
     build_data_loader,
     build_ood_dataloader_args,
 )
-from TDL_mcd_helper_fns import get_ls_mcd_samples_rcnn
+
+EXTRACT_MCD_SAMPLES_AND_ENTROPIES = True
+BASELINES = ["pred_h", "mi", "ash", "react", "dice", "dice_react"]
 
 
 def main(args) -> None:
@@ -84,11 +89,11 @@ def main(args) -> None:
     SAVE_FOLDER = f"./MCD_evaluation_data/{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}/"
     # Assert only one layer is specified to be hooked
     assert (
-        cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT
-        + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU
-        + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN
-        + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE
-        == 1
+            cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_RELU_AFTER_DROPOUT
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPOUT_BEFORE_RELU
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_RPN
+            + cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.HOOK_DROPBLOCK_AFTER_BACKBONE
+            == 1
     ), " Select only one layer to be hooked"
     ##################################################################################
     # Prepare predictor and data loaders
@@ -120,8 +125,12 @@ def main(args) -> None:
     ) = build_in_distribution_valid_test_dataloader_args(
         cfg, dataset_name=args.test_dataset, split_proportion=0.8
     )
-    ind_valid_dl = build_data_loader(**ind_valid_dl_args)
-    ind_test_dl = build_data_loader(**ind_test_dl_args)
+    ind_dataset_dict = {
+        "valid": build_data_loader(**ind_valid_dl_args),
+        "test": build_data_loader(**ind_test_dl_args)
+    }
+    # ind_valid_dl =
+    # ind_test_dl =
     del ind_valid_dl_args
     del ind_test_dl_args
 
@@ -139,92 +148,193 @@ def main(args) -> None:
     ###################################################################################################
     # Perform MCD inference and save samples
     ###################################################################################################
-    # Get Monte-Carlo samples
-    bdd_valid_mc_samples = get_ls_mcd_samples_rcnn(
-        model=predictor,
-        data_loader=ind_valid_dl,
-        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-        hook_dropout_layer=hooked_dropout_layer,
-        layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
-    )
-    del ind_valid_dl
-    # Save MC samples
-    num_images_to_save = int(
-        bdd_valid_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
-    )
-    torch.save(
-        bdd_valid_mc_samples,
-        f"./{SAVE_FOLDER}/{ind_dataset}_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_valid_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
-    )
-    # Get Monte-Carlo samples
-    bdd_test_mc_samples = get_ls_mcd_samples_rcnn(
-        model=predictor,
-        data_loader=ind_test_dl,
-        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-        hook_dropout_layer=hooked_dropout_layer,
-        layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
-    )
-    del ind_test_dl
-    # Save MC samples
-    num_images_to_save = int(
-        bdd_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
-    )
-    torch.save(
-        bdd_test_mc_samples,
-        f"./{SAVE_FOLDER}/{ind_dataset}_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{bdd_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
-    )
-    # Get Monte-Carlo samples
-    ood_test_mc_samples = get_ls_mcd_samples_rcnn(
-        model=predictor,
-        data_loader=ood_test_data_loader,
-        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-        hook_dropout_layer=hooked_dropout_layer,
-        layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
-    )
-    del ood_test_data_loader
-    # Save MC samples
-    num_images_to_save = int(
-        ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
-    )
-    torch.save(
-        ood_test_mc_samples,
-        f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
-    )
-    # Since inference if memory-intense, we want to liberate as much memory as possible
-    del predictor
-    ########################################################################################
-    # Calculate and save entropy
-    ########################################################################################
-    # Calculate entropy for bdd valid set
-    _, bdd_valid_h_z_np = get_dl_h_z(
-        bdd_valid_mc_samples,
-        mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-    )
-    # Save entropy calculations
-    np.save(
-        f"./{SAVE_FOLDER}/{ind_dataset}_valid_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_valid_h_z_np.shape[0]}_{bdd_valid_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-        bdd_valid_h_z_np,
-    )
-    # Calculate entropy bdd test set
-    _, bdd_test_h_z_np = get_dl_h_z(
-        bdd_test_mc_samples,
-        mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-    )
-    # Save entropy calculations
-    np.save(
-        f"./{SAVE_FOLDER}/{ind_dataset}_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{bdd_test_h_z_np.shape[0]}_{bdd_test_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-        bdd_test_h_z_np,
-    )
-    # Calculate entropy ood test set
-    _, ood_h_z_np = get_dl_h_z(
-        ood_test_mc_samples,
-        mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-    )
-    # Save entropy calculations
-    np.save(
-        f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-        ood_h_z_np,
-    )
+    if EXTRACT_MCD_SAMPLES_AND_ENTROPIES:
+        for split, dataloader in ind_dataset_dict.items():
+            # Get Monte-Carlo samples
+            ind_samples, ind_raw_samples = get_ls_mcd_samples_rcnn(
+                model=predictor,
+                data_loader=dataloader,
+                mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+                hook_dropout_layer=hooked_dropout_layer,
+                layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
+                return_raw_predictions=True
+            )
+            # Save MC samples
+            num_images_to_save = int(
+                ind_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+            )
+            torch.save(
+                ind_samples,
+                f"./{SAVE_FOLDER}/{ind_dataset}_{split}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_"
+                f"{num_images_to_save}_{ind_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_"
+                f"mcd_samples.pt",
+            )
+            # Calculate Mutual information and predictive entropy
+            if "mi" in BASELINES or "pred_h" in BASELINES:
+                if split == "test":
+                    ind_pred_h, ind_mi = get_predictive_uncertainty_score(
+                        input_samples=ind_raw_samples,
+                        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+                    )
+                    ind_pred_h, ind_mi = ind_pred_h.cpu().numpy(), ind_mi.cpu().numpy()
+                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_pred_h", ind_pred_h)
+                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_mi", ind_mi)
+                    del ind_mi
+                    del ind_pred_h
+            # Calculate entropy for InD
+            _, ind_h_z_np = get_dl_h_z(
+                ind_samples,
+                mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+            )
+            # Save entropy calculations
+            np.save(
+                f"./{SAVE_FOLDER}/{ind_dataset}_{split}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_"
+                f"{ind_h_z_np.shape[0]}_{ind_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_"
+                f"mcd_h_z_samples",
+                ind_h_z_np,
+            )
+
+        # # Get Monte-Carlo samples
+        ood_test_mc_samples, ood_raw_samples = get_ls_mcd_samples_rcnn(
+            model=predictor,
+            data_loader=ood_test_data_loader,
+            mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+            hook_dropout_layer=hooked_dropout_layer,
+            layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
+            return_raw_predictions=True
+        )
+
+        # Save MC samples
+        num_images_to_save = int(
+            ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+        )
+        torch.save(
+            ood_test_mc_samples,
+            f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
+        )
+        if "mi" in BASELINES or "pred_h" in BASELINES:
+            ood_pred_h, ood_mi = get_predictive_uncertainty_score(
+                input_samples=ood_raw_samples,
+                mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+            )
+            ood_pred_h, ood_mi = ood_pred_h.cpu().numpy(), ood_mi.cpu().numpy()
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_pred_h", ood_pred_h)
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_mi", ood_mi)
+
+        # Calculate entropy ood test set
+        _, ood_h_z_np = get_dl_h_z(
+            ood_test_mc_samples,
+            mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+        )
+        # Save entropy calculations
+        np.save(
+            f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+            ood_h_z_np,
+        )
+        # Since inference if memory-intense, we want to liberate as much memory as possible
+        del ood_h_z_np
+        del ood_pred_h
+        del ood_mi
+        del ood_test_mc_samples
+        del ood_raw_samples
+        del ind_h_z_np
+        del ind_raw_samples
+        del ind_samples
+
+    #######################
+    # Maximum softmax probability and energy scores calculations
+    predictor.model.eval()  # No MCD needed here
+    if "msp" in BASELINES:
+        # InD
+        print(f"\nMsp from InD {ind_dataset}")
+        assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
+        ind_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ind_dataset_dict["test"])
+        np.save(f"./{SAVE_FOLDER}/{ind_dataset}_msp", ind_test_msp)
+        # OoD
+        print(f"\nMsp from OoD {ood_ds_name}")
+        ood_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ood_test_data_loader)
+        np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_msp", ood_test_msp)
+    if "energy" in BASELINES:
+        assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
+        save_energy_scores_baselines(predictor=predictor,
+                                     ind_data_loader=ind_dataset_dict["test"],
+                                     ood_data_loader=ood_test_data_loader,
+                                     baseline_name="energy",
+                                     save_foldar_name=SAVE_FOLDER,
+                                     ind_ds_name=ind_dataset,
+                                     ood_ds_name=ood_ds_name)
+
+    ##########################
+    # ASH
+    if "ash" in BASELINES:
+        predictor.ash_inference = True
+        save_energy_scores_baselines(predictor=predictor,
+                                     ind_data_loader=ind_dataset_dict["test"],
+                                     ood_data_loader=ood_test_data_loader,
+                                     baseline_name="ash",
+                                     save_foldar_name=SAVE_FOLDER,
+                                     ind_ds_name=ind_dataset,
+                                     ood_ds_name=ood_ds_name)
+        predictor.ash_inference = False
+
+    if "dice" in BASELINES or "react" in BASELINES or "dice_react" in BASELINES:
+        predictor.dice_react_precompute = True
+        dice_info_mean, react_threshold = get_dice_feat_mean_react_percentile_rcnn(
+            dnn_model=predictor,
+            ind_dataloader=ind_dataset_dict["valid"],
+            react_percentile=cfg.PROBABILISTIC_INFERENCE.REACT_PERCENTILE
+        )
+        predictor.dice_react_precompute = False
+        # react_threshold = 0.8  # Only for debugging purposes
+        # dice_info_mean = np.random.rand(1024)  # Only for debugging purposes
+        if "react" in BASELINES:
+            # React evaluation
+            predictor.react_threshold = react_threshold
+            save_energy_scores_baselines(predictor=predictor,
+                                         ind_data_loader=ind_dataset_dict["test"],
+                                         ood_data_loader=ood_test_data_loader,
+                                         baseline_name="react",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ind_ds_name=ind_dataset,
+                                         ood_ds_name=ood_ds_name)
+            predictor.react_threshold = None
+        if "dice" in BASELINES:
+            # DICE evaluation
+            predictor.model.roi_heads.box_predictor.cls_score = RouteDICE(1024,
+                                                                          11,
+                                                                          bias=True,
+                                                                          p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
+                                                                          info=dice_info_mean).to(device)
+            save_energy_scores_baselines(predictor=predictor,
+                                         ind_data_loader=ind_dataset_dict["test"],
+                                         ood_data_loader=ood_test_data_loader,
+                                         baseline_name="dice",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ind_ds_name=ind_dataset,
+                                         ood_ds_name=ood_ds_name)
+            # Restore model to original
+            predictor = build_predictor(cfg)
+            predictor.model.eval()
+
+        if "dice_react" in BASELINES:
+            # DICE + ReAct evaluation
+            predictor.react_threshold = react_threshold
+            predictor.model.roi_heads.box_predictor.cls_score = RouteDICE(1024,
+                                                                          11,
+                                                                          bias=True,
+                                                                          p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
+                                                                          info=dice_info_mean).to(device)
+            save_energy_scores_baselines(predictor=predictor,
+                                         ind_data_loader=ind_dataset_dict["test"],
+                                         ood_data_loader=ood_test_data_loader,
+                                         baseline_name="dice_react",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ind_ds_name=ind_dataset,
+                                         ood_ds_name=ood_ds_name)
+            # Restore model to original
+            predictor = build_predictor(cfg)
+            predictor.model.eval()
+
     # Analysis of the calculated samples is performed in another script!
 
 
