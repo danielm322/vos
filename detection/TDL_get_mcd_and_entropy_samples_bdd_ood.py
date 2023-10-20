@@ -41,7 +41,7 @@ from TDL_helper_functions import (
 )
 
 EXTRACT_MCD_SAMPLES_AND_ENTROPIES = True
-BASELINES = ["pred_h", "mi", "ash", "react", "dice", "dice_react"]
+BASELINES = ["pred_h", "mi", "ash", "react", "dice", "dice_react", "msp", "energy"]
 
 
 def main(args) -> None:
@@ -257,24 +257,34 @@ def main(args) -> None:
     if "energy" in BASELINES:
         assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
         save_energy_scores_baselines(predictor=predictor,
-                                     ind_data_loader=ind_dataset_dict["test"],
-                                     ood_data_loader=ood_test_data_loader,
+                                     data_loader=ind_dataset_dict["test"],
                                      baseline_name="energy",
                                      save_foldar_name=SAVE_FOLDER,
-                                     ind_ds_name=ind_dataset,
-                                     ood_ds_name=ood_ds_name)
+                                     ds_name=ind_dataset,
+                                     ds_type="ind")
+        save_energy_scores_baselines(predictor=predictor,
+                                     data_loader=ood_test_data_loader,
+                                     baseline_name="energy",
+                                     save_foldar_name=SAVE_FOLDER,
+                                     ds_name=ood_ds_name,
+                                     ds_type="ood")
 
     ##########################
     # ASH
     if "ash" in BASELINES:
         predictor.ash_inference = True
         save_energy_scores_baselines(predictor=predictor,
-                                     ind_data_loader=ind_dataset_dict["test"],
-                                     ood_data_loader=ood_test_data_loader,
+                                     data_loader=ind_dataset_dict["test"],
                                      baseline_name="ash",
                                      save_foldar_name=SAVE_FOLDER,
-                                     ind_ds_name=ind_dataset,
-                                     ood_ds_name=ood_ds_name)
+                                     ds_name=ind_dataset,
+                                     ds_type="ind")
+        save_energy_scores_baselines(predictor=predictor,
+                                     data_loader=ood_test_data_loader,
+                                     baseline_name="ash",
+                                     save_foldar_name=SAVE_FOLDER,
+                                     ds_name=ood_ds_name,
+                                     ds_type="ood")
         predictor.ash_inference = False
 
     if "dice" in BASELINES or "react" in BASELINES or "dice_react" in BASELINES:
@@ -284,6 +294,8 @@ def main(args) -> None:
             ind_dataloader=ind_dataset_dict["valid"],
             react_percentile=cfg.PROBABILISTIC_INFERENCE.REACT_PERCENTILE
         )
+        np.save(f"./{SAVE_FOLDER}/dice_info", dice_info_mean)
+        np.save(f"./{SAVE_FOLDER}/react_threshold", react_threshold)
         predictor.dice_react_precompute = False
         # react_threshold = 0.8  # Only for debugging purposes
         # dice_info_mean = np.random.rand(1024)  # Only for debugging purposes
@@ -291,12 +303,17 @@ def main(args) -> None:
             # React evaluation
             predictor.react_threshold = react_threshold
             save_energy_scores_baselines(predictor=predictor,
-                                         ind_data_loader=ind_dataset_dict["test"],
-                                         ood_data_loader=ood_test_data_loader,
+                                         data_loader=ind_dataset_dict["test"],
                                          baseline_name="react",
                                          save_foldar_name=SAVE_FOLDER,
-                                         ind_ds_name=ind_dataset,
-                                         ood_ds_name=ood_ds_name)
+                                         ds_name=ind_dataset,
+                                         ds_type="ind")
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ood_test_data_loader,
+                                         baseline_name="react",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ood_ds_name,
+                                         ds_type="ood")
             predictor.react_threshold = None
         if "dice" in BASELINES:
             # DICE evaluation
@@ -306,12 +323,17 @@ def main(args) -> None:
                                                                           p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
                                                                           info=dice_info_mean).to(device)
             save_energy_scores_baselines(predictor=predictor,
-                                         ind_data_loader=ind_dataset_dict["test"],
-                                         ood_data_loader=ood_test_data_loader,
+                                         data_loader=ind_dataset_dict["test"],
                                          baseline_name="dice",
                                          save_foldar_name=SAVE_FOLDER,
-                                         ind_ds_name=ind_dataset,
-                                         ood_ds_name=ood_ds_name)
+                                         ds_name=ind_dataset,
+                                         ds_type="ind")
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ood_test_data_loader,
+                                         baseline_name="dice",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ood_ds_name,
+                                         ds_type="ood")
             # Restore model to original
             predictor = build_predictor(cfg)
             predictor.model.eval()
@@ -325,12 +347,17 @@ def main(args) -> None:
                                                                           p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
                                                                           info=dice_info_mean).to(device)
             save_energy_scores_baselines(predictor=predictor,
-                                         ind_data_loader=ind_dataset_dict["test"],
-                                         ood_data_loader=ood_test_data_loader,
+                                         data_loader=ind_dataset_dict["test"],
                                          baseline_name="dice_react",
                                          save_foldar_name=SAVE_FOLDER,
-                                         ind_ds_name=ind_dataset,
-                                         ood_ds_name=ood_ds_name)
+                                         ds_name=ind_dataset,
+                                         ds_type="ind")
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ood_test_data_loader,
+                                         baseline_name="dice_react",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ood_ds_name,
+                                         ds_type="ood")
             # Restore model to original
             predictor = build_predictor(cfg)
             predictor.model.eval()
