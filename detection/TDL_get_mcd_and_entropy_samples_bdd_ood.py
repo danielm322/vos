@@ -287,6 +287,8 @@ def main(args) -> None:
                                      ds_type="ood")
         predictor.ash_inference = False
 
+    ###############################
+    # DICE, ReAct
     if "dice" in BASELINES or "react" in BASELINES or "dice_react" in BASELINES:
         predictor.dice_react_precompute = True
         dice_info_mean, react_threshold = get_dice_feat_mean_react_percentile_rcnn(
