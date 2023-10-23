@@ -18,7 +18,7 @@ from detectron2.engine import launch
 # from core.evaluation_tools.evaluation_utils import get_train_contiguous_id_to_test_thing_dataset_id_dict
 from core.setup import setup_config, setup_arg_parser
 from inference.inference_utils import get_inference_output_dir, build_predictor
-from detection.inference.baselines import save_energy_scores_baselines
+from inference.baselines import save_energy_scores_baselines
 # from detectron2.data.detection_utils import read_image
 # Latent space OOD detection imports
 # The following matplotlib backend (TkAgg) seems to be the only one that easily can plot either on the main or in
@@ -136,8 +136,8 @@ def main(args) -> None:
                 mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
             )
             ood_pred_h, ood_mi = ood_pred_h.cpu().numpy(), ood_mi.cpu().numpy()
-            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_pred_h", ood_pred_h)
-            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_mi", ood_mi)
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_pred_h", ood_pred_h)
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_mi", ood_mi)
             del ood_mi
             del ood_pred_h
             del ood_raw_samples
@@ -162,7 +162,7 @@ def main(args) -> None:
         print(f"\nMsp from OoD {ood_ds_name}")
         assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
         ood_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=test_data_loader)
-        np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_msp", ood_test_msp)
+        np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_msp", ood_test_msp)
     if "energy" in BASELINES:
         assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
         save_energy_scores_baselines(predictor=predictor,
@@ -188,7 +188,7 @@ def main(args) -> None:
     # DICE, ReAct
     if "dice" in BASELINES or "react" in BASELINES or "dice_react" in BASELINES:
         dice_info_mean = np.load(file=f"./{SAVE_FOLDER}/dice_info.npy")
-        react_threshold = np.load(file=f"./{SAVE_FOLDER}/react_threshold.npy")
+        react_threshold = float(np.load(file=f"./{SAVE_FOLDER}/react_threshold.npy"))
 
         if "react" in BASELINES:
             # React evaluation

@@ -10,7 +10,7 @@ PROBABILISTIC_INFERENCE:
         # After inference: perform MC dropout after a normal inference pass (default option for TDL project)
         AFTER_INFERENCE: True
         ENABLE: True
-        NUM_RUNS: 10
+        NUM_RUNS: 16
         # Layer_type is either 'FC' (Fully Connected for a normal dropout layer),
         # 'backbone', to get the tensor of outputs from backbone
         # 'RPN' for the output of the RPN's objectness logits (Dropblock), or

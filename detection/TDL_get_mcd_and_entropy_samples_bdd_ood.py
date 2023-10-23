@@ -138,7 +138,7 @@ def main(args) -> None:
     ood_data_loader_args = build_ood_dataloader_args(cfg)
     ood_test_data_loader = build_data_loader(**ood_data_loader_args)
     if cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val_bdd":
-        ood_ds_name = "coco_indbdd"
+        ood_ds_name = "coco"
     elif cfg.PROBABILISTIC_INFERENCE.OOD_DATASET == "coco_ood_val":
         ood_ds_name = "coco_indvoc"
     else:
@@ -177,8 +177,8 @@ def main(args) -> None:
                         mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
                     )
                     ind_pred_h, ind_mi = ind_pred_h.cpu().numpy(), ind_mi.cpu().numpy()
-                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_pred_h", ind_pred_h)
-                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_mi", ind_mi)
+                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ood_pred_h", ind_pred_h)
+                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ood_mi", ind_mi)
                     del ind_mi
                     del ind_pred_h
             # Calculate entropy for InD
@@ -218,8 +218,8 @@ def main(args) -> None:
                 mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
             )
             ood_pred_h, ood_mi = ood_pred_h.cpu().numpy(), ood_mi.cpu().numpy()
-            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_pred_h", ood_pred_h)
-            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_mi", ood_mi)
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_pred_h", ood_pred_h)
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_mi", ood_mi)
 
         # Calculate entropy ood test set
         _, ood_h_z_np = get_dl_h_z(
@@ -249,11 +249,11 @@ def main(args) -> None:
         print(f"\nMsp from InD {ind_dataset}")
         assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
         ind_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ind_dataset_dict["test"])
-        np.save(f"./{SAVE_FOLDER}/{ind_dataset}_msp", ind_test_msp)
+        np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_msp", ind_test_msp)
         # OoD
         print(f"\nMsp from OoD {ood_ds_name}")
         ood_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ood_test_data_loader)
-        np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_msp", ood_test_msp)
+        np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_msp", ood_test_msp)
     if "energy" in BASELINES:
         assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
         save_energy_scores_baselines(predictor=predictor,
