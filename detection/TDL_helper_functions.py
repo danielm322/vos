@@ -103,3 +103,53 @@ def build_in_distribution_valid_test_dataloader_args(cfg,
         "sampler": InferenceSampler(len(test_dataset))
         if not isinstance(test_dataset, torchdata.IterableDataset)
         else None, }
+
+
+def build_ind_voc_train_dataloader_args(cfg,
+                                        # dataset_name: str,
+                                        split_proportion: float = 0.5) -> Dict:
+    """
+    Builds the arguments (datasets, mappers, samplers) for the VOC train set
+    :param cfg: Configuration class parameters
+    :param dataset_name:
+    :param split_proportion: Sets the proportion of the train set
+    :return: Dictionary to build the train set dataloader
+    """
+    # if isinstance(dataset_name, str):
+    #     dataset_name = [dataset_name]
+
+    # dataset = get_detection_dataset_dicts(
+    #     dataset_name,
+    #     filter_empty=False,
+    #     proposal_files=[
+    #         cfg.DATASETS.PROPOSAL_FILES_TEST[list(cfg.DATASETS.TEST).index(x)] for x in dataset_name
+    #     ]
+    #     if cfg.MODEL.LOAD_PROPOSALS
+    #     else None,
+    # )
+    dataset = get_detection_dataset_dicts(
+        cfg.DATASETS.TRAIN,
+        filter_empty=cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS,
+        min_keypoints=cfg.MODEL.ROI_KEYPOINT_HEAD.MIN_KEYPOINTS_PER_IMAGE
+        if cfg.MODEL.KEYPOINT_ON
+        else 0,
+        proposal_files=cfg.DATASETS.PROPOSAL_FILES_TRAIN if cfg.MODEL.LOAD_PROPOSALS else None,
+    )
+    # _log_api_usage("dataset." + cfg.DATASETS.TRAIN[0])
+    # Split dataset
+    indexes_np = np.arange(len(dataset))
+    np.random.shuffle(indexes_np)
+    max_idx_train = int(split_proportion * len(dataset))
+    # valid_idxs, test_idxs = indexes_np[:12], indexes_np[100:115]
+    train_idxs = indexes_np[:max_idx_train]
+    train_dataset = [dataset[i] for i in train_idxs]
+
+    mapper_train = DatasetMapper(cfg, False)
+    return {
+        "dataset": train_dataset,
+        "mapper": mapper_train,
+        "num_workers": cfg.DATALOADER.NUM_WORKERS,
+        "sampler": InferenceSampler(len(train_dataset))
+        if not isinstance(train_dataset, torchdata.IterableDataset)
+        else None,
+    }

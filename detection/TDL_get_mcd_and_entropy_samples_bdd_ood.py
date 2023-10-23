@@ -37,7 +37,7 @@ from ls_ood_detect_cea.rcnn import get_ls_mcd_samples_rcnn, get_msp_score_rcnn, 
 from TDL_helper_functions import (
     build_in_distribution_valid_test_dataloader_args,
     build_data_loader,
-    build_ood_dataloader_args,
+    build_ood_dataloader_args, build_ind_voc_train_dataloader_args,
 )
 
 EXTRACT_MCD_SAMPLES_AND_ENTROPIES = True
@@ -119,20 +119,35 @@ def main(args) -> None:
     # Activate Dropout layers
     predictor.model.apply(deeplabv3p_apply_dropout)
     # Build In Distribution valid and test data loader
-    (
-        ind_valid_dl_args,
-        ind_test_dl_args,
-    ) = build_in_distribution_valid_test_dataloader_args(
-        cfg, dataset_name=args.test_dataset, split_proportion=0.8
-    )
-    ind_dataset_dict = {
-        "valid": build_data_loader(**ind_valid_dl_args),
-        "test": build_data_loader(**ind_test_dl_args)
-    }
-    # ind_valid_dl =
-    # ind_test_dl =
-    del ind_valid_dl_args
-    del ind_test_dl_args
+    if ind_dataset == "voc":
+        train_voc_args = build_ind_voc_train_dataloader_args(cfg=cfg,
+                                                             split_proportion=0.5)
+        (
+            ind_test_dl_args,
+            _,
+        ) = build_in_distribution_valid_test_dataloader_args(
+            cfg, dataset_name=args.test_dataset, split_proportion=0.41
+        )
+        ind_dataset_dict = {
+            "valid": build_data_loader(**train_voc_args),
+            "test": build_data_loader(**ind_test_dl_args)
+        }
+        del ind_test_dl_args
+        del train_voc_args
+    # BDD
+    else:
+        (
+            ind_valid_dl_args,
+            ind_test_dl_args,
+        ) = build_in_distribution_valid_test_dataloader_args(
+            cfg, dataset_name=args.test_dataset, split_proportion=0.8
+        )
+        ind_dataset_dict = {
+            "valid": build_data_loader(**ind_valid_dl_args),
+            "test": build_data_loader(**ind_test_dl_args)
+        }
+        del ind_valid_dl_args
+        del ind_test_dl_args
 
     # Build Out of Distribution test data loader
     ood_data_loader_args = build_ood_dataloader_args(cfg)

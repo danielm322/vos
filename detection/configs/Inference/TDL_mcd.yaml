@@ -30,8 +30,8 @@ PROBABILISTIC_INFERENCE:
     REACT_PERCENTILE: 85
     DICE_PERCENTILE: 85
 
-    # Either 'openimages_ood_val' for openimages OoD or 'coco_ood_val_bdd'
-    OOD_DATASET: "coco_ood_val_bdd"
+    # Either 'openimages_ood_val' for openimages OoD or 'coco_ood_val_bdd', or coco_ood_val for InD VOC
+    OOD_DATASET: "coco_ood_val"
 
 MODEL:
     RPN:
