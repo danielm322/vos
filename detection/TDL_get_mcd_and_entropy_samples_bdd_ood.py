@@ -192,8 +192,8 @@ def main(args) -> None:
                         mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
                     )
                     ind_pred_h, ind_mi = ind_pred_h.cpu().numpy(), ind_mi.cpu().numpy()
-                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ood_pred_h", ind_pred_h)
-                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ood_mi", ind_mi)
+                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_pred_h", ind_pred_h)
+                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_mi", ind_mi)
                     del ind_mi
                     del ind_pred_h
             # Calculate entropy for InD
@@ -335,7 +335,7 @@ def main(args) -> None:
         if "dice" in BASELINES:
             # DICE evaluation
             predictor.model.roi_heads.box_predictor.cls_score = RouteDICE(1024,
-                                                                          11,
+                                                                          cfg.MODEL.ROI_HEADS.NUM_CLASSES + 1,
                                                                           bias=True,
                                                                           p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
                                                                           info=dice_info_mean).to(device)
@@ -359,7 +359,7 @@ def main(args) -> None:
             # DICE + ReAct evaluation
             predictor.react_threshold = react_threshold
             predictor.model.roi_heads.box_predictor.cls_score = RouteDICE(1024,
-                                                                          11,
+                                                                          cfg.MODEL.ROI_HEADS.NUM_CLASSES + 1,
                                                                           bias=True,
                                                                           p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
                                                                           info=dice_info_mean).to(device)
