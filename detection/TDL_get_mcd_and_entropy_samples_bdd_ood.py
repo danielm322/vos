@@ -41,6 +41,8 @@ from TDL_helper_functions import (
 )
 
 EXTRACT_MCD_SAMPLES_AND_ENTROPIES = True
+EXTRACT_IND = True
+EXTRACT_OOD = True
 BASELINES = ["pred_h", "mi", "ash", "react", "dice", "dice_react", "msp", "energy"]
 
 
@@ -164,173 +166,189 @@ def main(args) -> None:
     # Perform MCD inference and save samples
     ###################################################################################################
     if EXTRACT_MCD_SAMPLES_AND_ENTROPIES:
-        for split, dataloader in ind_dataset_dict.items():
-            # Get Monte-Carlo samples
-            ind_samples, ind_raw_samples = get_ls_mcd_samples_rcnn(
+        if EXTRACT_IND:
+            for split, dataloader in ind_dataset_dict.items():
+                # Get Monte-Carlo samples
+                ind_samples, ind_raw_samples = get_ls_mcd_samples_rcnn(
+                    model=predictor,
+                    data_loader=dataloader,
+                    mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+                    hook_dropout_layer=hooked_dropout_layer,
+                    layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
+                    return_raw_predictions=True
+                )
+                # Save MC samples
+                num_images_to_save = int(
+                    ind_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+                )
+                torch.save(
+                    ind_samples,
+                    f"./{SAVE_FOLDER}/{ind_dataset}_{split}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_"
+                    f"{num_images_to_save}_{ind_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_"
+                    f"mcd_samples.pt",
+                )
+                # Calculate Mutual information and predictive entropy
+                if "mi" in BASELINES or "pred_h" in BASELINES:
+                    if split == "test":
+                        ind_pred_h, ind_mi = get_predictive_uncertainty_score(
+                            input_samples=ind_raw_samples,
+                            mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+                        )
+                        ind_pred_h, ind_mi = ind_pred_h.cpu().numpy(), ind_mi.cpu().numpy()
+                        np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_pred_h", ind_pred_h)
+                        np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_mi", ind_mi)
+                        del ind_mi
+                        del ind_pred_h
+                # Calculate entropy for InD
+                _, ind_h_z_np = get_dl_h_z(
+                    ind_samples,
+                    mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
+                )
+                # Save entropy calculations
+                np.save(
+                    f"./{SAVE_FOLDER}/{ind_dataset}_{split}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_"
+                    f"{ind_h_z_np.shape[0]}_{ind_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_"
+                    f"mcd_h_z_samples",
+                    ind_h_z_np,
+                )
+            del ind_h_z_np
+            del ind_raw_samples
+            del ind_samples
+
+        if EXTRACT_OOD:
+            # OoD
+            # # Get Monte-Carlo samples
+            ood_test_mc_samples, ood_raw_samples = get_ls_mcd_samples_rcnn(
                 model=predictor,
-                data_loader=dataloader,
+                data_loader=ood_test_data_loader,
                 mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
                 hook_dropout_layer=hooked_dropout_layer,
                 layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
                 return_raw_predictions=True
             )
+
             # Save MC samples
             num_images_to_save = int(
-                ind_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+                ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
             )
             torch.save(
-                ind_samples,
-                f"./{SAVE_FOLDER}/{ind_dataset}_{split}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_"
-                f"{num_images_to_save}_{ind_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_"
-                f"mcd_samples.pt",
+                ood_test_mc_samples,
+                f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
             )
-            # Calculate Mutual information and predictive entropy
             if "mi" in BASELINES or "pred_h" in BASELINES:
-                if split == "test":
-                    ind_pred_h, ind_mi = get_predictive_uncertainty_score(
-                        input_samples=ind_raw_samples,
-                        mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
-                    )
-                    ind_pred_h, ind_mi = ind_pred_h.cpu().numpy(), ind_mi.cpu().numpy()
-                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_pred_h", ind_pred_h)
-                    np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_mi", ind_mi)
-                    del ind_mi
-                    del ind_pred_h
-            # Calculate entropy for InD
-            _, ind_h_z_np = get_dl_h_z(
-                ind_samples,
+                ood_pred_h, ood_mi = get_predictive_uncertainty_score(
+                    input_samples=ood_raw_samples,
+                    mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
+                )
+                ood_pred_h, ood_mi = ood_pred_h.cpu().numpy(), ood_mi.cpu().numpy()
+                np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_pred_h", ood_pred_h)
+                np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_mi", ood_mi)
+
+            # Calculate entropy ood test set
+            _, ood_h_z_np = get_dl_h_z(
+                ood_test_mc_samples,
                 mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
             )
             # Save entropy calculations
             np.save(
-                f"./{SAVE_FOLDER}/{ind_dataset}_{split}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_"
-                f"{ind_h_z_np.shape[0]}_{ind_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_"
-                f"mcd_h_z_samples",
-                ind_h_z_np,
+                f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
+                ood_h_z_np,
             )
-
-        # # Get Monte-Carlo samples
-        ood_test_mc_samples, ood_raw_samples = get_ls_mcd_samples_rcnn(
-            model=predictor,
-            data_loader=ood_test_data_loader,
-            mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-            hook_dropout_layer=hooked_dropout_layer,
-            layer_type=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE,
-            return_raw_predictions=True
-        )
-
-        # Save MC samples
-        num_images_to_save = int(
-            ood_test_mc_samples.shape[0] / cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
-        )
-        torch.save(
-            ood_test_mc_samples,
-            f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{num_images_to_save}_{ood_test_mc_samples.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_samples.pt",
-        )
-        if "mi" in BASELINES or "pred_h" in BASELINES:
-            ood_pred_h, ood_mi = get_predictive_uncertainty_score(
-                input_samples=ood_raw_samples,
-                mcd_nro_samples=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS
-            )
-            ood_pred_h, ood_mi = ood_pred_h.cpu().numpy(), ood_mi.cpu().numpy()
-            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_pred_h", ood_pred_h)
-            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_mi", ood_mi)
-
-        # Calculate entropy ood test set
-        _, ood_h_z_np = get_dl_h_z(
-            ood_test_mc_samples,
-            mcd_samples_nro=cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS,
-        )
-        # Save entropy calculations
-        np.save(
-            f"./{SAVE_FOLDER}/{ood_ds_name}_ood_test_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.LAYER_TYPE}_{ood_h_z_np.shape[0]}_{ood_h_z_np.shape[1]}_{cfg.PROBABILISTIC_INFERENCE.MC_DROPOUT.NUM_RUNS}_mcd_h_z_samples",
-            ood_h_z_np,
-        )
-        # Since inference if memory-intense, we want to liberate as much memory as possible
-        del ood_h_z_np
-        del ood_pred_h
-        del ood_mi
-        del ood_test_mc_samples
-        del ood_raw_samples
-        del ind_h_z_np
-        del ind_raw_samples
-        del ind_samples
+            # Since inference if memory-intense, we want to liberate as much memory as possible
+            del ood_h_z_np
+            del ood_pred_h
+            del ood_mi
+            del ood_test_mc_samples
+            del ood_raw_samples
 
     #######################
     # Maximum softmax probability and energy scores calculations
     predictor.model.eval()  # No MCD needed here
     if "msp" in BASELINES:
-        # InD
-        print(f"\nMsp from InD {ind_dataset}")
-        assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
-        ind_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ind_dataset_dict["test"])
-        np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_msp", ind_test_msp)
-        # OoD
-        print(f"\nMsp from OoD {ood_ds_name}")
-        ood_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ood_test_data_loader)
-        np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_msp", ood_test_msp)
+        if EXTRACT_IND:
+            # InD
+            print(f"\nMsp from InD {ind_dataset}")
+            assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
+            ind_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ind_dataset_dict["test"])
+            np.save(f"./{SAVE_FOLDER}/{ind_dataset}_ind_msp", ind_test_msp)
+        if EXTRACT_OOD:
+            # OoD
+            print(f"\nMsp from OoD {ood_ds_name}")
+            ood_test_msp = get_msp_score_rcnn(dnn_model=predictor, input_dataloader=ood_test_data_loader)
+            np.save(f"./{SAVE_FOLDER}/{ood_ds_name}_ood_msp", ood_test_msp)
     if "energy" in BASELINES:
         assert cfg.PROBABILISTIC_INFERENCE.OUTPUT_BOX_CLS
-        save_energy_scores_baselines(predictor=predictor,
-                                     data_loader=ind_dataset_dict["test"],
-                                     baseline_name="energy",
-                                     save_foldar_name=SAVE_FOLDER,
-                                     ds_name=ind_dataset,
-                                     ds_type="ind")
-        save_energy_scores_baselines(predictor=predictor,
-                                     data_loader=ood_test_data_loader,
-                                     baseline_name="energy",
-                                     save_foldar_name=SAVE_FOLDER,
-                                     ds_name=ood_ds_name,
-                                     ds_type="ood")
+        if EXTRACT_IND:
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ind_dataset_dict["test"],
+                                         baseline_name="energy",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ind_dataset,
+                                         ds_type="ind")
+        if EXTRACT_OOD:
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ood_test_data_loader,
+                                         baseline_name="energy",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ood_ds_name,
+                                         ds_type="ood")
 
     ##########################
     # ASH
     if "ash" in BASELINES:
         predictor.ash_inference = True
-        save_energy_scores_baselines(predictor=predictor,
-                                     data_loader=ind_dataset_dict["test"],
-                                     baseline_name="ash",
-                                     save_foldar_name=SAVE_FOLDER,
-                                     ds_name=ind_dataset,
-                                     ds_type="ind")
-        save_energy_scores_baselines(predictor=predictor,
-                                     data_loader=ood_test_data_loader,
-                                     baseline_name="ash",
-                                     save_foldar_name=SAVE_FOLDER,
-                                     ds_name=ood_ds_name,
-                                     ds_type="ood")
+        if EXTRACT_IND:
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ind_dataset_dict["test"],
+                                         baseline_name="ash",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ind_dataset,
+                                         ds_type="ind")
+        if EXTRACT_OOD:
+            save_energy_scores_baselines(predictor=predictor,
+                                         data_loader=ood_test_data_loader,
+                                         baseline_name="ash",
+                                         save_foldar_name=SAVE_FOLDER,
+                                         ds_name=ood_ds_name,
+                                         ds_type="ood")
         predictor.ash_inference = False
 
     ###############################
     # DICE, ReAct
     if "dice" in BASELINES or "react" in BASELINES or "dice_react" in BASELINES:
-        predictor.dice_react_precompute = True
-        dice_info_mean, react_threshold = get_dice_feat_mean_react_percentile_rcnn(
-            dnn_model=predictor,
-            ind_dataloader=ind_dataset_dict["valid"],
-            react_percentile=cfg.PROBABILISTIC_INFERENCE.REACT_PERCENTILE
-        )
-        np.save(f"./{SAVE_FOLDER}/dice_info", dice_info_mean)
-        np.save(f"./{SAVE_FOLDER}/react_threshold", react_threshold)
-        predictor.dice_react_precompute = False
+        if not os.path.exists(f"./{SAVE_FOLDER}/dice_info.npy") \
+                or not os.path.exists(f"./{SAVE_FOLDER}/react_threshold.npy"):
+            predictor.dice_react_precompute = True
+            dice_info_mean, react_threshold = get_dice_feat_mean_react_percentile_rcnn(
+                dnn_model=predictor,
+                ind_dataloader=ind_dataset_dict["valid"],
+                react_percentile=cfg.PROBABILISTIC_INFERENCE.REACT_PERCENTILE
+            )
+            np.save(f"./{SAVE_FOLDER}/dice_info", dice_info_mean)
+            np.save(f"./{SAVE_FOLDER}/react_threshold", react_threshold)
+            predictor.dice_react_precompute = False
+        else:
+            dice_info_mean = np.load(file=f"./{SAVE_FOLDER}/dice_info.npy")
+            react_threshold = float(np.load(file=f"./{SAVE_FOLDER}/react_threshold.npy"))
         # react_threshold = 0.8  # Only for debugging purposes
         # dice_info_mean = np.random.rand(1024)  # Only for debugging purposes
         if "react" in BASELINES:
             # React evaluation
             predictor.react_threshold = react_threshold
-            save_energy_scores_baselines(predictor=predictor,
-                                         data_loader=ind_dataset_dict["test"],
-                                         baseline_name="react",
-                                         save_foldar_name=SAVE_FOLDER,
-                                         ds_name=ind_dataset,
-                                         ds_type="ind")
-            save_energy_scores_baselines(predictor=predictor,
-                                         data_loader=ood_test_data_loader,
-                                         baseline_name="react",
-                                         save_foldar_name=SAVE_FOLDER,
-                                         ds_name=ood_ds_name,
-                                         ds_type="ood")
+            if EXTRACT_IND:
+                save_energy_scores_baselines(predictor=predictor,
+                                             data_loader=ind_dataset_dict["test"],
+                                             baseline_name="react",
+                                             save_foldar_name=SAVE_FOLDER,
+                                             ds_name=ind_dataset,
+                                             ds_type="ind")
+            if EXTRACT_OOD:
+                save_energy_scores_baselines(predictor=predictor,
+                                             data_loader=ood_test_data_loader,
+                                             baseline_name="react",
+                                             save_foldar_name=SAVE_FOLDER,
+                                             ds_name=ood_ds_name,
+                                             ds_type="ood")
             predictor.react_threshold = None
         if "dice" in BASELINES:
             # DICE evaluation
@@ -339,18 +357,20 @@ def main(args) -> None:
                                                                           bias=True,
                                                                           p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
                                                                           info=dice_info_mean).to(device)
-            save_energy_scores_baselines(predictor=predictor,
-                                         data_loader=ind_dataset_dict["test"],
-                                         baseline_name="dice",
-                                         save_foldar_name=SAVE_FOLDER,
-                                         ds_name=ind_dataset,
-                                         ds_type="ind")
-            save_energy_scores_baselines(predictor=predictor,
-                                         data_loader=ood_test_data_loader,
-                                         baseline_name="dice",
-                                         save_foldar_name=SAVE_FOLDER,
-                                         ds_name=ood_ds_name,
-                                         ds_type="ood")
+            if EXTRACT_IND:
+                save_energy_scores_baselines(predictor=predictor,
+                                             data_loader=ind_dataset_dict["test"],
+                                             baseline_name="dice",
+                                             save_foldar_name=SAVE_FOLDER,
+                                             ds_name=ind_dataset,
+                                             ds_type="ind")
+            if EXTRACT_OOD:
+                save_energy_scores_baselines(predictor=predictor,
+                                             data_loader=ood_test_data_loader,
+                                             baseline_name="dice",
+                                             save_foldar_name=SAVE_FOLDER,
+                                             ds_name=ood_ds_name,
+                                             ds_type="ood")
             # Restore model to original
             predictor = build_predictor(cfg)
             predictor.model.eval()
@@ -363,18 +383,20 @@ def main(args) -> None:
                                                                           bias=True,
                                                                           p=cfg.PROBABILISTIC_INFERENCE.DICE_PERCENTILE,
                                                                           info=dice_info_mean).to(device)
-            save_energy_scores_baselines(predictor=predictor,
-                                         data_loader=ind_dataset_dict["test"],
-                                         baseline_name="dice_react",
-                                         save_foldar_name=SAVE_FOLDER,
-                                         ds_name=ind_dataset,
-                                         ds_type="ind")
-            save_energy_scores_baselines(predictor=predictor,
-                                         data_loader=ood_test_data_loader,
-                                         baseline_name="dice_react",
-                                         save_foldar_name=SAVE_FOLDER,
-                                         ds_name=ood_ds_name,
-                                         ds_type="ood")
+            if EXTRACT_IND:
+                save_energy_scores_baselines(predictor=predictor,
+                                             data_loader=ind_dataset_dict["test"],
+                                             baseline_name="dice_react",
+                                             save_foldar_name=SAVE_FOLDER,
+                                             ds_name=ind_dataset,
+                                             ds_type="ind")
+            if EXTRACT_OOD:
+                save_energy_scores_baselines(predictor=predictor,
+                                             data_loader=ood_test_data_loader,
+                                             baseline_name="dice_react",
+                                             save_foldar_name=SAVE_FOLDER,
+                                             ds_name=ood_ds_name,
+                                             ds_type="ood")
             # Restore model to original
             predictor = build_predictor(cfg)
             predictor.model.eval()
