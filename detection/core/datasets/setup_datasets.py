@@ -96,7 +96,7 @@ def setup_openim_odd_dataset(dataset_dir):
     Only validation is supported.
     """
     # Ugly but desperate measure to be able to load ood test set at the same time as bdd test set
-    dataset_dir = "../../OpenImages/"
+    # dataset_dir = "../../OpenImages/"
     test_image_dir = os.path.join(dataset_dir + 'ood_classes_rm_overlap', 'images')
 
     test_json_annotations = os.path.join(
