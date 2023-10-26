@@ -80,6 +80,7 @@ def main(args) -> None:
         "coco_ood_val_bdd",
         "openimages_ood_val",
         "coco_ood_val",
+        "bdd_custom_val"
     )
 
     os.makedirs(inference_output_dir, exist_ok=True)
@@ -121,9 +122,11 @@ def main(args) -> None:
     # Activate Dropout layers
     predictor.model.apply(deeplabv3p_apply_dropout)
     # Build In Distribution valid and test data loader
-    if ind_dataset == "voc":
+    if ind_dataset == "voc" or args.test_dataset == "voc_custom_val":
+        # The following split proportions correspond to: 0.5 if ind is VOC (and test is also VOC)
+        # and to 0.01 when BDD is InD and VOC is OoD (test dataset voc)
         train_voc_args = build_ind_voc_train_dataloader_args(cfg=cfg,
-                                                             split_proportion=0.5)
+                                                             split_proportion=0.5 if ind_dataset == "voc" else 0.01)
         (
             ind_test_dl_args,
             _,

@@ -147,6 +147,8 @@ def setup_voc_id_dataset(dataset_dir):
 
 
 def setup_bdd_dataset(dataset_dir):
+    # Uncomment only if VOC is OoD wrt BDD
+    # dataset_dir = "../../bdd100k"
     train_image_dir = os.path.join(dataset_dir, 'images/100k/train')
     # else:
     test_image_dir = os.path.join(dataset_dir, 'images/100k/val')
@@ -179,6 +181,8 @@ def setup_bdd_dataset(dataset_dir):
 
 
 def setup_voc_dataset(dataset_dir):
+    # Uncomment only if BDD is OoD wrt VOC
+    # dataset_dir = "../../VOC_0712_converted"
     train_image_dir = os.path.join(dataset_dir, 'JPEGImages')
     # else:
     test_image_dir = os.path.join(dataset_dir, 'JPEGImages')
