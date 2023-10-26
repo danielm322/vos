@@ -20,9 +20,17 @@ DATASETS:
   TEST: ('voc_custom_val',)
 SOLVER:
   IMS_PER_BATCH: 16
-  BASE_LR: 0.02
+  BASE_LR: 0.0001
   STEPS: (12000, 16000)
-  MAX_ITER: 18000  # 17.4 epochs
+#  MAX_ITER: 18000  # 17.4 epochs
+  MAX_ITER: 10000  # 17.4 epochs
   WARMUP_ITERS: 100
+  SAVE_LAST_CHECKPOINTS: 2
+  SAVE_BEST_CHECKPOINTS: 2
+  VAL_METRIC: "bbox/AP50"
+  VAL_METRIC_MODE: "max"
+  FREEZE_BACKBONE: True
+  FREEZE_RPN: False
+  FREEZE_BOX_POOLER: False
 DATALOADER:
     NUM_WORKERS: 8  # Depends on the available memory

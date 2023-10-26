@@ -102,10 +102,15 @@ def main(args):
 
     # Eval only mode to produce mAP results
     # Build Trainer from config node. Begin Training.
+    # BDD as InD:
     # Random seed 0: freeze backbone, RPN
     # Random seed 1: No fine-tuning at all (use this seed to get samples from original architecture)
     # Random seed 2: freeze backbone, unfreeze rest, dropblock_size1 slurm-147627
     # Random seed 3: freeze backbone, unfreeze rest, dropblock_size4 slurm-147664
+
+    # VOC as InD:
+    # Random seed 0: No fine-tuning
+    # Random seed 1: Freeze backbone, unfreeze rest, db size 4
     trainer = Trainer(cfg)
 
     if args.eval_only:
@@ -121,7 +126,7 @@ def main(args):
     trainer.resume_or_load(resume=args.resume)
     # MlFlow configuration
     # Either "Box Head Dropout" or "RPN Conv DB"
-    experiment_name = "RPN Conv DB"
+    experiment_name = "RPN Conv DB VOC"
     existing_exp = mlflow.get_experiment_by_name(experiment_name)
     if not existing_exp:
         mlflow.create_experiment(
